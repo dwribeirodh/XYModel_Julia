@@ -11,6 +11,7 @@ using FiniteDifferences
 using Cuba
 using DataStructures
 using LinearAlgebra
+using SpecialFunctions
 
 function generate_lattice(L::Int, is_random::Bool)::Array
     """
@@ -67,10 +68,10 @@ function get_energy(vec)::Float64
 
     energy = 0
     for (i, angle) in enumerate(vec)
-        s1, s2 = find_nbrs(vec, i)
-        energy += cos(angle - s1) + cos(angle - s2)
+        s1, _ = find_nbrs(vec, i)
+        energy += cos(angle - s1)
     end
-    return -energy/2
+    return -energy
 end
 
 function get_magnetization(vec)::Float64
@@ -82,7 +83,7 @@ function get_magnetization(vec)::Float64
 end
 
 function get_thermo_beta(T::Float64)::Float64
-    return 1/T
+    return 1.0/T
 end
 
 function metropolis_step(vec::Array, energy::Float64, T::Float64)
@@ -104,11 +105,19 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     θi_new = vec[rand_spin] + dθ
     θi_old = vec[rand_spin]
     #calculate ΔE
-    ΔE = (cos(θi_new - θj_1) - cos(θi_old - θj_1) + cos(θi_new - θj_2) - cos(θi_old - θj_2))
-    y = exp(-β*ΔE)
-    if rand() < y
-        vec[rand_spin] = θi_new
+    #ΔE = cos(θi_new - θj_1) - cos(θi_old - θj_1) + cos(θi_new - θj_2) - cos(θi_old - θj_2)
+    temp = copy(vec)
+    temp[rand_spin] = vec[rand_spin] + dθ
+    ΔE = get_energy(temp) - energy
+    if ΔE < 0
+        vec[rand_spin] = vec[rand_spin] + dθ
         energy = energy + ΔE
+    else ΔE > 0
+        y = exp(-β*ΔE)
+        if rand() < y
+            vec[rand_spin] = θi_new
+            energy = energy + ΔE
+        end
     end
     return vec, energy
 end
@@ -121,17 +130,21 @@ function sweep_metropolis(T, epoch::Float64, freq::Int64, L::Int64, is_random::B
     cv = 0
     E = []
     M = []
+    #t_plot = []
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
         if t > 0.50*epoch && t % freq == 0
             mag = get_magnetization(lattice)
             push!(E, energy)
             push!(M, mag)
+            #push!(t_plot, t)
         end
     end
     cv = β^2 * var(E) / L
-    E = mean(E) / L
-    M = mean(M) / L
+    E = E ./ L
+    E = mean(E)
+    M = M ./ L
+    M = mean(M)
     return E, cv, M
 end
 
@@ -141,35 +154,75 @@ function metropolis_wrapper(T, epoch::Float64, freq::Int64, L::Int64, is_random:
     M = zeros(length(T))
     Cv = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
-        energy, cv, mag = sweep_metropolis(temp, epoch, freq, L, is_random)
-        E[index] = energy
+        e, cv, mag = sweep_metropolis(temp, epoch, freq, L, is_random)
+        E[index] = e
         M[index] = mag
         Cv[index] = cv
     end
     return E, Cv, M
 end
 
-function test_deltaE(vec)
-    energy_init = get_energy(vec)
-    L = length(vec)
-    rand_spin = rand(1:L)
-    nbrs = find_nbrs(vec, rand_spin)
-    dθ = rand(-pi:pi)
-    ΔE = (cos(vec[rand_spin] + dθ - nbrs[1]) - cos(vec[rand_spin] - nbrs[1]) + cos(vec[rand_spin] + dθ - nbrs[2]) - cos(vec[rand_spin] - nbrs[2]))
-    vec[rand_spin] = vec[rand_spin] + dθ
-    test_energy = energy_init + ΔE
-    energy_final = get_energy(vec)
-    res = energy_final - test_energy
-    return res
+function get_modified_free_energy(β::Float64)::Float64
+    f = -1 * log(2*pi*besseli(0, β))
+    return f
 end
 
+
+function get_exact_internal_energy(β::Float64)::Float64
+    #u = central_fdm(10, 1)(get_modified_free_energy, β)
+    u = - besseli(1, β) / besseli(0, β)
+end
+
+function get_exact_cv(T::Float64)::Float64
+    K = 1.0/T
+    μ = besseli(1, K) / besseli(0, K)
+    cv = K^2 * (1 - μ/K - μ^2)
+    return cv
+end
+
+function get_exact_properties(T)
+    println("Calculating Exact Properties")
+    cv = zeros(length(T))
+    u = zeros(length(T))
+    for (index, temp) in ProgressBar(enumerate(T))
+        cv[index] = get_exact_cv(temp)
+        u[index] = get_exact_internal_energy(1.0/temp)
+    end
+    return u, cv
+end
+
+function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
+
+    println("Plotting and saving figures...")
+
+    e_plot = plot(T_exact, exact_data[1, :], title = "XY Energy", label = "exact",
+                tick_direction = :out, legend = :best, color = "black")
+    scatter!(T_sim, metro_data[1, :], label = "Metropolis")
+    xlabel!("T")
+    ylabel!("E/N")
+    savefig(e_plot, path*"xy_energy_"*string(epoch)*"_"*string(L)*".png")
+
+    cv_plot = plot(T_exact, exact_data[2, :], title = "XY Cv", label = "exact",
+                tick_direction = :out, legend = :best, color = "black")
+    scatter!(T_sim, metro_data[2, :], label = "Metropolis")
+    xlabel!("T")
+    ylabel!("Cv/N")
+    savefig(cv_plot, path*"xy_cv_"*string(epoch)*"_"*string(L)*".png")
+end
+
+path_ = "/Users/danielribeiro/Desktop/res/06_08_21/1D_xy/"
+
 T = 0:0.2:5
-epoch = 1e7
+epoch = 5e6
 freq = 1000
-L = 100
+L = 1000
 is_random = false
 
 e, cv, m = metropolis_wrapper(T, epoch, freq, L, is_random)
+metro_res = [e cv m]'
 
-plot(T, e)
-plot(T, cv)
+T_exact = 0.01:0.01:5
+u, cv_exact = get_exact_properties(T_exact)
+exact_res = [u cv_exact]'
+
+plot_data(exact_res, metro_res, T_exact, T, path_, epoch, L)
