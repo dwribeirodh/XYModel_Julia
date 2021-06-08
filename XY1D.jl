@@ -107,7 +107,7 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     ΔE = (cos(θi_new - θj_1) - cos(θi_old - θj_1) + cos(θi_new - θj_2) - cos(θi_old - θj_2))
     y = exp(-β*ΔE)
     if rand() < y
-        vec[rand_spin] = vec[rand_spin] + dθ
+        vec[rand_spin] = θi_new
         energy = energy + ΔE
     end
     return vec, energy
