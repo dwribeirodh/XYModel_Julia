@@ -98,26 +98,23 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     rand_spin = rand(1:L)
     # find j neighbors of i
     nbrs = find_nbrs(vec, rand_spin)
-    θj_1 = nbrs[1]
-    θj_2 = nbrs[2]
+    #θj_1 = nbrs[1]
+    #θj_2 = nbrs[2]
     # generate random change in angle dθ
     dθ = rand(-pi:pi)
-    θi_new = vec[rand_spin] + dθ
-    θi_old = vec[rand_spin]
+    #θi_new = vec[rand_spin] + dθ
+    #θi_old = vec[rand_spin]
+    ΔE = 0
+    for nn_angle in nbrs
+        ΔE += cos(vec[rand_spin] + dθ - nn_angle) - cos(vec[rand_spin] - nn_angle)
+    end
+    ΔE = -ΔE
     #calculate ΔE
     #ΔE = cos(θi_new - θj_1) - cos(θi_old - θj_1) + cos(θi_new - θj_2) - cos(θi_old - θj_2)
-    temp = copy(vec)
-    temp[rand_spin] = vec[rand_spin] + dθ
-    ΔE = get_energy(temp) - energy
-    if ΔE < 0
-        vec[rand_spin] = vec[rand_spin] + dθ
+    y = exp(-β*ΔE)
+    if rand() < y
+        vec[rand_spin] = θi_new
         energy = energy + ΔE
-    else ΔE > 0
-        y = exp(-β*ΔE)
-        if rand() < y
-            vec[rand_spin] = θi_new
-            energy = energy + ΔE
-        end
     end
     return vec, energy
 end
