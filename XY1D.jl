@@ -98,28 +98,35 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     rand_spin = rand(1:L)
     # find j neighbors of i
     nbrs = find_nbrs(vec, rand_spin)
-    #θj_1 = nbrs[1]
-    #θj_2 = nbrs[2]
     # generate random change in angle dθ
     dθ = rand(-pi:pi)
-    #θi_new = vec[rand_spin] + dθ
-    #θi_old = vec[rand_spin]
+    #calculate ΔE
     ΔE = 0
     for nn_angle in nbrs
         ΔE += cos(vec[rand_spin] + dθ - nn_angle) - cos(vec[rand_spin] - nn_angle)
     end
     ΔE = -ΔE
-    #calculate ΔE
-    #ΔE = cos(θi_new - θj_1) - cos(θi_old - θj_1) + cos(θi_new - θj_2) - cos(θi_old - θj_2)
     y = exp(-β*ΔE)
     if rand() < y
-        vec[rand_spin] = θi_new
+        vec[rand_spin] = vec[rand_spin] + dθ
         energy = energy + ΔE
     end
     return vec, energy
 end
 
-function sweep_metropolis(T, epoch::Float64, freq::Int64, L::Int64, is_random::Bool)
+function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool)
+    """
+    given temperature T, runs a simulation using the Metropolis algorithm
+    Params
+        epoch: number of spin flips
+        freq: frequency with which to output data
+        lattice_dim: lattice length
+        is_random: generate random lattice or completely correlated lattice
+    Returns
+        E: numerical internal energy approximation
+        Cv: numerical approximation for heat capacity
+        M: numerical approximation for magnetization
+    """
     β = get_thermo_beta(T)
     lattice = generate_lattice(L, is_random)
     energy = get_energy(lattice)
@@ -127,14 +134,12 @@ function sweep_metropolis(T, epoch::Float64, freq::Int64, L::Int64, is_random::B
     cv = 0
     E = []
     M = []
-    #t_plot = []
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
         if t > 0.50*epoch && t % freq == 0
             mag = get_magnetization(lattice)
             push!(E, energy)
             push!(M, mag)
-            #push!(t_plot, t)
         end
     end
     cv = β^2 * var(E) / L
@@ -145,7 +150,10 @@ function sweep_metropolis(T, epoch::Float64, freq::Int64, L::Int64, is_random::B
     return E, cv, M
 end
 
-function metropolis_wrapper(T, epoch::Float64, freq::Int64, L::Int64, is_random::Bool)
+function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool)
+    """
+    generates thermodynamic data for 1D xy using Metropolis.
+    """
     println("Running Metropolis simulation...")
     E = zeros(length(T))
     M = zeros(length(T))
@@ -166,7 +174,6 @@ end
 
 
 function get_exact_internal_energy(β::Float64)::Float64
-    #u = central_fdm(10, 1)(get_modified_free_energy, β)
     u = - besseli(1, β) / besseli(0, β)
 end
 
@@ -190,7 +197,7 @@ end
 
 function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 
-    println("Plotting and saving figures...")
+    println("Plotting and saving figures to: " * path)
 
     e_plot = plot(T_exact, exact_data[1, :], title = "XY Energy", label = "exact",
                 tick_direction = :out, legend = :best, color = "black")
@@ -205,12 +212,14 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
     xlabel!("T")
     ylabel!("Cv/N")
     savefig(cv_plot, path*"xy_cv_"*string(epoch)*"_"*string(L)*".png")
+
+    println("---------- ### End of Program ### ----------")
 end
 
-path_ = "/Users/danielribeiro/Desktop/res/06_08_21/1D_xy/"
+path_ = "/Users/danielribeiro/Desktop/res/06_09_21/1D_xy/"
 
 T = 0:0.2:5
-epoch = 5e6
+epoch = 5e5
 freq = 1000
 L = 1000
 is_random = false
