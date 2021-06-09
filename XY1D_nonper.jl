@@ -12,6 +12,7 @@ using Cuba
 using DataStructures
 using LinearAlgebra
 using SpecialFunctions
+using DelimitedFiles
 
 function generate_lattice(L::Int, is_random::Bool)::Array
     """
@@ -112,7 +113,7 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     return vec, energy
 end
 
-function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool)
+function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpath::String)
     """
     given temperature T, runs a simulation using the Metropolis algorithm
     Params
@@ -135,6 +136,7 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool)
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
         if t > 0.50*epoch && t % freq == 0
+            save_configs(lattice, cpath, t, T)
             mag = get_magnetization(lattice)
             push!(E, energy)
             push!(M, mag)
@@ -148,7 +150,7 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool)
     return E, cv, M
 end
 
-function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool)
+function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpath::String)
     """
     generates thermodynamic data for 1D xy using Metropolis.
     """
@@ -157,7 +159,7 @@ function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool)
     M = zeros(length(T))
     Cv = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
-        e, cv, mag = sweep_metropolis(temp, epoch, freq, L, is_random)
+        e, cv, mag = sweep_metropolis(temp, epoch, freq, L, is_random, cpath)
         E[index] = e
         M[index] = mag
         Cv[index] = cv
@@ -208,19 +210,27 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
     println("---------- ### End of Program ### ----------")
 end
 
-path_ = "/Users/danielribeiro/Desktop/res/06_09_21/1D_xy_nonper/"
+function save_configs(vec::Array, path::String, spins_flipped::Float64, T::Float64)
+    fname = "xy_config_"*string(spins_flipped)*"_"*string(T)*".txt"
+    open(path*fname, "w") do io
+        writedlm(io, vec)
+    end
+end
+
+path1 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/thermo_data/"
+path2 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/config_data/"
 
 T = 0:0.2:5
-epoch = 1e5
-freq = 1000
-L = 10000
+epoch = 5e7
+freq = 100000
+L = 1000
 is_random = false
 
-e, cv, m = metropolis_wrapper(T, epoch, freq, L, is_random)
+e, cv, m = metropolis_wrapper(T, epoch, freq, L, is_random, path2)
 metro_res = [e cv m]'
 
 T_exact = 0.01:0.01:5
 u, cv_exact = get_exact_properties(T_exact)
 exact_res = [u cv_exact]'
 
-plot_data(exact_res, metro_res, T_exact, T, path_, epoch, L)
+plot_data(exact_res, metro_res, T_exact, T, path1, epoch, L)
