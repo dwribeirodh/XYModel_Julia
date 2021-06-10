@@ -8,11 +8,11 @@ using ProgressBars
 using Elliptic
 using HCubature
 using FiniteDifferences
-using Cuba
 using DataStructures
 using LinearAlgebra
 using SpecialFunctions
 using DelimitedFiles
+using PyCall
 
 function generate_lattice(L::Int, is_random::Bool)::Array
     """
@@ -133,16 +133,19 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpat
     cv = 0
     E = []
     M = []
+    counter = 0
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
         if t > 0.50*epoch
+            counter += 1
             if t % freq == 0
                 mag = get_magnetization(lattice)
                 push!(E, energy)
                 push!(M, mag)
             end
-            if t % 13e7 == 0
+            if counter == 1e7
                 save_configs(lattice, cpath, t, T)
+                counter = 0
             end
         end
     end
@@ -221,12 +224,22 @@ function save_configs(vec::Array, path::String, spins_flipped::Float64, T::Float
     end
 end
 
-path1 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/thermo_data/"
-path2 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/config_data/"
+function get_entropy(x::Array)::Float64
+    L = length(x)
+    sc = pyimport("sweetsourcod.lempel_ziv")
+    rand_array = rand([0,1], L)
+    cid_rand = sc.lempel_ziv_complexity(rand_array, "lz77")[2]
+    cid = sc.lempel_ziv_complexity(x, "lz77")[2]
+    s = cid / cid_rand
+    return s
+end
+
+path1 = "/Users/danielribeiro/XY_Results/06_10_21/1D_XY_nonper/thermo_data/"
+path2 = "/Users/danielribeiro/XY_Results/06_10_21/1D_XY_nonper/configs/"
 
 T = 0:0.2:5
 epoch = 1e9
-freq = 10000
+freq = 1000000
 L = 1000000
 is_random = false
 
