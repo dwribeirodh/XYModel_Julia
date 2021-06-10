@@ -135,11 +135,15 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpat
     M = []
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
-        if t > 0.50*epoch && t % freq == 0
-            save_configs(lattice, cpath, t, T)
-            mag = get_magnetization(lattice)
-            push!(E, energy)
-            push!(M, mag)
+        if t > 0.50*epoch
+            if t % freq == 0
+                mag = get_magnetization(lattice)
+                push!(E, energy)
+                push!(M, mag)
+            end
+            if t % 13e7 == 0
+                save_configs(lattice, cpath, t, T)
+            end
         end
     end
     cv = β^2 * var(E) / L
@@ -211,7 +215,7 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 end
 
 function save_configs(vec::Array, path::String, spins_flipped::Float64, T::Float64)
-    fname = "xy_config_"*string(spins_flipped)*"_"*string(T)*".txt"
+    fname = "xy_config_"*string(T)*"_"*string(spins_flipped)*".txt"
     open(path*fname, "w") do io
         writedlm(io, vec)
     end
@@ -221,9 +225,9 @@ path1 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/thermo_data/"
 path2 = "/Users/danielribeiro/XY_Results/06_09_21/1D_xy_nonper/config_data/"
 
 T = 0:0.2:5
-epoch = 5e7
-freq = 100000
-L = 1000
+epoch = 1e9
+freq = 10000
+L = 1000000
 is_random = false
 
 e, cv, m = metropolis_wrapper(T, epoch, freq, L, is_random, path2)
