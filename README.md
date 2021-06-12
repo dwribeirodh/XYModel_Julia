@@ -1,9 +1,9 @@
 # XYModel_Julia
-This package applies the Metropolis algorithm to generate thermodynamic data and equilibrium configurations of the [1D XY model](https://en.wikipedia.org/wiki/Classical_XY_model). Magnetization, internal energy, and specific heat can be computed by running a Monte Carlo simulation with adjustable parameters.
+This package applies the Metropolis algorithm to generate thermodynamic data and equilibrium configurations of the [1D XY model](https://en.wikipedia.org/wiki/Classical_XY_model). Magnetization, internal energy, and specific heat can be computed by running a Monte Carlo simulation with adjustable parameters. Entropy data is computed using the [sweetsourcod] (https://github.com/martiniani-lab/sweetsourcod) repo. Make sure to have sweetsourcod functional before trying to compute entropies.
 
 ## Installation
 
-clone this repository as follows
+To install this package, clone the repository as follows:
 ```
 git clone https://github.com/dwribeirodh/XYModel_Julia.git
 ```
