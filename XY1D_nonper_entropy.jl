@@ -2,7 +2,7 @@
 
 using Distributions
 using Colors
-using Images
+#using Images
 using Plots
 using ProgressBars
 using Elliptic
@@ -13,6 +13,7 @@ using LinearAlgebra
 using SpecialFunctions
 using DelimitedFiles
 using PyCall
+using StatsBase
 
 
 function read_config_file(fname::String, path::String)
@@ -24,7 +25,7 @@ function read_config_file(fname::String, path::String)
     idx = split(fname, "_")
     temp = parse(Float64, idx[3])
     config = readdlm(path*fname, ',')
-    config = map_vec(config)
+    #config = map_vec(config)
     return config, temp
 end
 
@@ -40,22 +41,29 @@ function dir_parser(path::String, sc)
     for fname in ProgressBar(dir_list)
         if fname != ".DS_Store"
             vec, temp = read_config_file(fname, path)
-            vec = vec .+ 2pi
-            vec = map_vec(vec)
+            vec = reshape(vec, length(vec))
+            vec = discretize_data(vec)
+            #vec = vec .+ 2pi
             push!(configs, vec)
             if !in(temp, T)
                 push!(T, temp)
             end
         end
     end
+    return configs, T
+end
+
+function test_entropy(configs, T, sc)
     nsamples = length(configs) / length(T)
     S = zeros(length(T))
     ctr = 0
     s = 0
     idx = 0
+    test = 0
     println("Calculating entropy...")
     for lattice in ProgressBar(configs)
-        s += get_entropy(lattice, sc)
+        test += 1
+        s += get_entropy(lattice.+1, sc)
         ctr += 1
         if ctr == nsamples
             idx += 1
@@ -65,7 +73,7 @@ function dir_parser(path::String, sc)
             s = 0
         end
     end
-    return S, T
+    return S
 end
 
 function map2twopi(angle::Float64)::Float64
@@ -87,7 +95,7 @@ function map_vec(vec::Array)::Array
     return vec
 end
 
-function get_entropy(vec::Array, sc; niter = 100)
+function get_entropy(vec, sc; niter = 100)
     """
     computes entropy of vec based on LZ77 compression
     """
@@ -105,7 +113,7 @@ function get_cid_rand(L::Int, niter::Int, sc)::Float64
     """
     cid_rand = 0.0
     for i = 1:niter
-        rand_seq = rand(-pi:pi, L)
+        rand_seq = rand([0 1], L)
         cid_rand += sc.lempel_ziv_complexity(rand_seq, "lz77")[2]
     end
     cid_rand = cid_rand / niter
@@ -116,7 +124,7 @@ function get_exact_entropy_(T::Float64)::Float64
     """
     calculates exact entropy of 1d xy model
     """
-    s = -log(2pi*besseli(0, 1.0/T)) + 1.0/T*(besseli(1, 1.0/T) / besseli(0, 1.0/T))
+    s = log(2pi*besseli(0, 1.0/T)) + 1.0/T*(besseli(1, 1.0/T) / besseli(0, 1.0/T))
     return s
 end
 
@@ -134,8 +142,21 @@ function get_exact_entropy(T)::Array
     return S
 end
 
-function discretize_data()
-    #TODO: implement
+function discretize_data(vec::Array; binwidth = 0.01)::Vector
+    """
+    this method takes in a vec of data in radians and a desired
+    binwidth, and returns the binned data
+    https://github.com/anowacki/assorted-julia-modules/blob/40fe2f109756a5a5f6ef4287bd3c594300fca63d/CircPlot.jl#L135
+    """
+    n = round(Int, 2pi/binwidth)
+    n = max(1, n)
+    binwidth = 2pi/n
+    bins = range(0, stop = 2pi, length=n+1)
+    data = mod.(vec, 2pi)
+    data .+= 10*eps(float(eltype(vec)))
+    h = fit(Histogram, data, bins, closed=:left).weights
+    #h = h ./ 10000
+    return h
 end
 
 function plot_entropy(s_sim, s_exact, T_sim, T_exact, fpath)
@@ -149,13 +170,23 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, fpath)
     println("---------- ### End of Program ### ----------")
 end
 
+function vec_to_array(vec)::Array
+    array = zeros(length(vec))
+    for (idx,item) in vec
+        array[idx] = item
+    end
+    return array
+end
+
 path1 = "/Users/danielribeiro/XY_Results/06_11_21/configs/"
 fpath = "/Users/danielribeiro/XY_Results/06_11_21/thermo_data/"
-
 sc = pyimport("sweetsourcod.lempel_ziv")
 T_exact = 0.01:0.01:5
 
-S_sim, T_sim = dir_parser(path1, sc)
+configs, T_sim = dir_parser(path1, sc)
+s = test_entropy(configs, T_sim, sc)
+
 S_exact = get_exact_entropy(T_exact)
 
-plot_entropy(S_sim, S_exact, T_sim, T_exact, fpath)
+plot_entropy(s, S_exact, T_sim, T_exact, fpath)
+#TODO: ask if discretize_data method works as it should be
