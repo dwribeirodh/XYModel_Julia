@@ -8,7 +8,6 @@ using ProgressBars
 using Elliptic
 using HCubature
 using FiniteDifferences
-using DataStructures
 using LinearAlgebra
 using SpecialFunctions
 using DelimitedFiles
@@ -234,8 +233,8 @@ function get_entropy(x::Array)::Float64
     return s
 end
 
-path1 = "/Users/danielribeiro/XY_Results/06_10_21/1D_XY_nonper/thermo_data/"
-path2 = "/Users/danielribeiro/XY_Results/06_10_21/1D_XY_nonper/configs/"
+path1 = "/Users/danielribeiro/XY_Results/06_11_21/thermo_data/"
+path2 = "/Users/danielribeiro/XY_Results/06_11_21/configs/"
 
 T = 0:0.2:5
 epoch = 1e9
