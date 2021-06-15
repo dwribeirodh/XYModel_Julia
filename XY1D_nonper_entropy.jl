@@ -24,8 +24,7 @@ function read_config_file(fname::String, path::String)
     """
     idx = split(fname, "_")
     temp = parse(Float64, idx[3])
-    config = readdlm(path*fname, ',')
-    #config = map_vec(config)
+    config = readdlm(path * fname, ',')
     return config, temp
 end
 
@@ -34,65 +33,42 @@ function dir_parser(path::String, sc)
     parse directory of config data and return vector of entropy data
     and vector of temperature data
     """
-    println("Parsing directory...")
+    println("Parsing directory and calculating entropy...")
     dir_list = readdir(path)
-    configs = []
+    S = zeros(length(dir_list))
     T = []
-    for fname in ProgressBar(dir_list)
+    for (idx,fname) in ProgressBar(enumerate(dir_list))
         if fname != ".DS_Store"
             vec, temp = read_config_file(fname, path)
             vec = reshape(vec, length(vec))
             vec = discretize_data(vec)
-            #vec = vec .+ 2pi
-            push!(configs, vec)
+            s = get_entropy(vec, sc)
+            S[idx] = s
             if !in(temp, T)
                 push!(T, temp)
             end
         end
     end
-    return configs, T
-end
-
-function test_entropy(configs, T, sc)
-    nsamples = length(configs) / length(T)
-    S = zeros(length(T))
+    println(string(length(S)))
+    println(string(length(T)))
+    nsample = length(S) / length(T)
+    nsample = convert(Int64, nsample)
+    S_avg = zeros(nsample)
     ctr = 0
-    s = 0
     idx = 0
-    test = 0
-    println("Calculating entropy...")
-    for lattice in ProgressBar(configs)
-        test += 1
-        s += get_entropy(lattice.+1, sc)
+    s = 0.0
+    for sample in S
         ctr += 1
-        if ctr == nsamples
+        s +=  get_entropy(sample, sc)
+        if ctr % nsample == 0
             idx += 1
-            s = s/nsamples
-            S[idx] = s
-            counter = 0
-            s = 0
+            s = s / nsample
+            S_avg[idx] = s
+            s = 0.0
+            ctr = 0
         end
     end
-    return S
-end
-
-function map2twopi(angle::Float64)::Float64
-    """
-    maps any angle back to [0, 2π]
-    """
-    angle = angle % 2pi
-    return angle
-end
-
-function map_vec(vec::Array)::Array
-    """
-    wrapper function of map2twopi. This takes a vector
-    and returns the vector with angles mapped back to [0, 2π]
-    """
-    for (idx,spin) in enumerate(vec)
-        vec[idx] = map2twopi(spin)
-    end
-    return vec
+    return S_avg, T
 end
 
 function get_entropy(vec, sc; niter = 100)
@@ -103,7 +79,7 @@ function get_entropy(vec, sc; niter = 100)
     cid_rand = get_cid_rand(L, niter, sc)
     cid = sc.lempel_ziv_complexity(vec, "lz77")[2]
     s = cid / cid_rand
-    return s*log(2)
+    return s * log(2)
 end
 
 function get_cid_rand(L::Int, niter::Int, sc)::Float64
@@ -120,11 +96,20 @@ function get_cid_rand(L::Int, niter::Int, sc)::Float64
     return cid_rand
 end
 
+function get_exact_free_energy(T::Float64)::Float64
+    """
+    computes the exact free energy of 1D XY model w/ zero external
+    magnetic field.
+    """
+    f = -T * log(2pi*besseli(0, 1.0/T))
+    return f
+end
+
 function get_exact_entropy_(T::Float64)::Float64
     """
     calculates exact entropy of 1d xy model
     """
-    s = log(2pi*besseli(0, 1.0/T)) + 1.0/T*(besseli(1, 1.0/T) / besseli(0, 1.0/T))
+    s = - central_fdm(10, 1)(get_exact_free_energy, T)
     return s
 end
 
@@ -142,51 +127,58 @@ function get_exact_entropy(T)::Array
     return S
 end
 
-function discretize_data(vec::Array; binwidth = 0.01)::Vector
+function discretize_data(vec::Array; binwidth = 0.025)::Vector
     """
     this method takes in a vec of data in radians and a desired
     binwidth, and returns the binned data
-    https://github.com/anowacki/assorted-julia-modules/blob/40fe2f109756a5a5f6ef4287bd3c594300fca63d/CircPlot.jl#L135
     """
-    n = round(Int, 2pi/binwidth)
-    n = max(1, n)
-    binwidth = 2pi/n
-    bins = range(0, stop = 2pi, length=n+1)
-    data = mod.(vec, 2pi)
-    data .+= 10*eps(float(eltype(vec)))
-    h = fit(Histogram, data, bins, closed=:left).weights
-    #h = h ./ 10000
-    return h
+    n = 255
+    vec = vec .+ abs(minimum(vec))
+    vec = vec .% (2pi)
+    vec = vec ./ (2pi / n)
+    vec = floor.(vec) .+ 1
+    return vec
 end
 
 function plot_entropy(s_sim, s_exact, T_sim, T_exact, fpath)
     println("Plotting and daving figures to: " * fpath)
-    s_plot = plot(T_exact, s_exact, title = "1D Ising Entropy", label = "exact",
-                tick_direction = :out, legend = :bottomright, color = "black")
+    s_plot = plot(
+        T_exact,
+        s_exact,
+        title = "1D Ising Entropy",
+        label = "exact",
+        tick_direction = :out,
+        legend = :bottomright,
+        color = "black",
+    )
     scatter!(T_sim, s_sim, label = "LZ-77")
     xlabel!("T")
     ylabel!("S/N")
-    savefig(s_plot, fpath*"1d_xy_entropy.png")
+    savefig(s_plot, fpath * "1d_xy_entropy.png")
     println("---------- ### End of Program ### ----------")
 end
 
 function vec_to_array(vec)::Array
     array = zeros(length(vec))
-    for (idx,item) in vec
+    for (idx, item) in vec
         array[idx] = item
     end
     return array
 end
-
-path1 = "/Users/danielribeiro/XY_Results/06_11_21/configs/"
-fpath = "/Users/danielribeiro/XY_Results/06_11_21/thermo_data/"
+cd("/Users/danielribeiro/XYModel_Julia")
+### Set params ###
+path1 = "/Users/danielribeiro/XY_Results/06_14_21/configs/"
+fpath = "/Users/danielribeiro/XY_Results/06_14_21/thermo/"
 sc = pyimport("sweetsourcod.lempel_ziv")
 T_exact = 0.01:0.01:5
 
-configs, T_sim = dir_parser(path1, sc)
-s = test_entropy(configs, T_sim, sc)
+### parse configs and calculate entropy ###
+S_sim, T_sim = dir_parser(path1, sc)
 
+### calculate exact entropy ###
 S_exact = get_exact_entropy(T_exact)
 
-plot_entropy(s, S_exact, T_sim, T_exact, fpath)
-#TODO: ask if discretize_data method works as it should be
+### plpot data ###
+plot_entropy(S_sim, S_exact, T_sim, T_exact, fpath)
+
+plot(T_sim, S_sim)
