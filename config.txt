@@ -1,0 +1,82 @@
+Set params for running the 1D XY simulation using the Metropolis algorithm.
+This config file will be read by the 1DXY_nonper.jl script to run the simulation
+It will then generate equilibrium configurations and thermodynamic data.
+If you have any more questions, email ribei040@umn.edu
+
+Set below params after the equals sign.
+
+--- T_sim ---
+the range of temperatures to be sampled using Metropolis algorithm.
+Example:
+
+initial value
+=0.01
+final value
+=5.0
+step size
+=0.2
+
+
+
+--- T_exact ---
+the range of temperatures to be used in calculating the exact solutions.
+Example:
+
+initial value
+=0.01
+final value
+=5.0
+step
+=0.01
+
+
+
+--- epoch ---
+the number of spins to be flipped during the simulation. This is defined as the
+number of time steps in the simulation. Important to notice that the burnout
+region of the Markov chain is preset to be the first half of configurations.
+Example: 1e7
+
+=1e9
+
+
+
+--- freq ---
+the frequency to which compute thermodynamic quantities. Important to note that
+this frequency will only take place after the burnout region.
+Example: 10000
+
+=10000
+
+
+
+--- L ---
+the length of the lattice to simulate.
+Example: 1000
+
+=1000000
+
+
+
+--- is_random ---
+boolean value to determine whether to initialize the lattice as fully random (true)
+or fully correlated (false).
+Example: true
+
+=false
+
+
+
+--- plots_path ---
+Choose path to save the thermodynamic data plots.
+Example: /path/to/thermo_folder
+
+=/Users/danielribeiro/XY_Results/06_14_21/thermo/
+
+
+
+--- configs_path ---
+Choose path to save configurations (.txt files)
+Example: path/to/configs_folder
+
+=/Users/danielribeiro/XY_Results/06_14_21/configs/
