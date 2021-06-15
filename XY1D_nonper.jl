@@ -22,7 +22,7 @@ function generate_lattice(L::Int, is_random::Bool)::Array
     else
         lattice = pi * ones(L)
     end
-    lattice = convert(Array{Float64, 1}, lattice)
+    lattice = convert(Array{Float64,1}, lattice)
     return lattice
 end
 
@@ -37,11 +37,11 @@ function find_nbrs_index(i::Int, L::Int)
         n1 = 2
         n2 = -1 # not a real neighbor
     elseif i == L
-        n1 = L-1
+        n1 = L - 1
         n2 = -1 # not a real neighbor
     else
-        n1 = i-1
-        n2 = i+1
+        n1 = i - 1
+        n2 = i + 1
     end
     return n1, n2
 end
@@ -69,7 +69,7 @@ function get_energy(vec)::Float64
     https://phas.ubc.ca/~berciu/TEACHING/PHYS502/PROJECTS/18BKT.pdf
     """
     energy = 0
-    for (i,angle) in enumerate(vec)
+    for (i, angle) in enumerate(vec)
         if i != 1
             s1 = find_nbrs(vec, i)[1]
             energy += cos(angle - s1)
@@ -87,7 +87,7 @@ function get_magnetization(vec)::Float64
 end
 
 function get_thermo_beta(T::Float64)::Float64
-    return 1.0/T
+    return 1.0 / T
 end
 
 function metropolis_step(vec::Array, energy::Float64, T::Float64)
@@ -104,7 +104,7 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
         ΔE += cos(vec[rand_spin] + dθ - nn_angle) - cos(vec[rand_spin] - nn_angle)
     end
     ΔE = -ΔE
-    y = exp(-β*ΔE)
+    y = exp(-β * ΔE)
     if rand() < y
         vec[rand_spin] = vec[rand_spin] + dθ
         energy = energy + ΔE
@@ -135,14 +135,14 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpat
     counter = 0
     for t in time
         lattice, energy = metropolis_step(lattice, energy, T)
-        if t > 0.50*epoch
+        if t > 0.50 * epoch
             counter += 1
             if t % freq == 0
                 mag = get_magnetization(lattice)
                 push!(E, energy)
                 push!(M, mag)
             end
-            if counter == 1e7
+            if counter == (epoch/10)
                 save_configs(lattice, cpath, t, T)
                 counter = 0
             end
@@ -174,13 +174,13 @@ function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool, cp
 end
 
 function get_exact_internal_energy(β::Float64)::Float64
-    u = - besseli(1, β) / besseli(0, β)
+    u = -besseli(1, β) / besseli(0, β)
 end
 
 function get_exact_cv(T::Float64)::Float64
-    K = 1.0/T
+    K = 1.0 / T
     μ = besseli(1, K) / besseli(0, K)
-    cv = K^2 * (1 - μ/K - μ^2)
+    cv = K^2 * (1 - μ / K - μ^2)
     return cv
 end
 
@@ -190,7 +190,7 @@ function get_exact_properties(T)
     u = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
         cv[index] = get_exact_cv(temp)
-        u[index] = get_exact_internal_energy(1.0/temp)
+        u[index] = get_exact_internal_energy(1.0 / temp)
     end
     return u, cv
 end
@@ -199,26 +199,40 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 
     println("Plotting and saving figures to: " * path)
 
-    e_plot = plot(T_exact, exact_data[1, :], title = "XY Energy", label = "exact",
-                tick_direction = :out, legend = :best, color = "black")
+    e_plot = plot(
+        T_exact,
+        exact_data[1, :],
+        title = "XY Energy",
+        label = "exact",
+        tick_direction = :out,
+        legend = :best,
+        color = "black",
+    )
     scatter!(T_sim, metro_data[1, :], label = "Metropolis")
     xlabel!("T")
     ylabel!("E/N")
-    savefig(e_plot, path*"xy_energy_"*string(epoch)*"_"*string(L)*".png")
+    savefig(e_plot, path * "xy_energy_" * string(epoch) * "_" * string(L) * ".png")
 
-    cv_plot = plot(T_exact, exact_data[2, :], title = "XY Cv", label = "exact",
-                tick_direction = :out, legend = :best, color = "black")
+    cv_plot = plot(
+        T_exact,
+        exact_data[2, :],
+        title = "XY Cv",
+        label = "exact",
+        tick_direction = :out,
+        legend = :best,
+        color = "black",
+    )
     scatter!(T_sim, metro_data[2, :], label = "Metropolis")
     xlabel!("T")
     ylabel!("Cv/N")
-    savefig(cv_plot, path*"xy_cv_"*string(epoch)*"_"*string(L)*".png")
+    savefig(cv_plot, path * "xy_cv_" * string(epoch) * "_" * string(L) * ".png")
 
     println("---------- ### End of Program ### ----------")
 end
 
 function save_configs(vec::Array, path::String, spins_flipped::Float64, T::Float64)
-    fname = "xy_config_"*string(T)*"_"*string(spins_flipped)*".txt"
-    open(path*fname, "w") do io
+    fname = "xy_config_" * string(T) * "_" * string(spins_flipped) * ".txt"
+    open(path * fname, "w") do io
         writedlm(io, vec)
     end
 end
@@ -226,27 +240,53 @@ end
 function get_entropy(x::Array)::Float64
     L = length(x)
     sc = pyimport("sweetsourcod.lempel_ziv")
-    rand_array = rand([0,1], L)
+    rand_array = rand([0, 1], L)
     cid_rand = sc.lempel_ziv_complexity(rand_array, "lz77")[2]
     cid = sc.lempel_ziv_complexity(x, "lz77")[2]
     s = cid / cid_rand
     return s
 end
 
-path1 = "/Users/danielribeiro/XY_Results/06_11_21/thermo_data/"
-path2 = "/Users/danielribeiro/XY_Results/06_11_21/configs/"
+function get_params()
+    params = []
+    open("config.txt") do f
+        while !eof(f)
+            line = readline(f)
+            if '=' in line
+                line = replace(line, "=" => "")
+                push!(params, line)
+            end
+        end
+    end
+    for i = 1:7
+        params[i] = parse(Float64, params[i])
+    end
+    for i = 8:9
+        params[i] = parse(Int, params[i])
+    end
+    params[10] = parse(Bool, params[10])
 
-T = 0:0.2:5
-epoch = 1e9
-freq = 1000000
-L = 1000000
-is_random = false
+    T_sim = params[1]:params[3]:params[2]
+    T_exact = params[4]:params[6]:params[5]
+    epoch = params[7]
+    freq = params[8]
+    L = params[9]
+    is_random = params[10]
+    plots_path = params[11]
+    configs_path = params[12]
 
-e, cv, m = metropolis_wrapper(T, epoch, freq, L, is_random, path2)
+    return T_sim, T_exact, epoch, freq, L, is_random, plots_path, configs_path
+end
+
+cd("/Users/danielribeiro/XYModel_Julia")
+
+T_sim, T_exact, epoch, freq, L, is_random, plots_path, configs_path = get_params()
+
+e, cv, m = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path)
 metro_res = [e cv m]'
 
-T_exact = 0.01:0.01:5
+
 u, cv_exact = get_exact_properties(T_exact)
 exact_res = [u cv_exact]'
 
-plot_data(exact_res, metro_res, T_exact, T, path1, epoch, L)
+plot_data(exact_res, metro_res, T_exact, T_sim, plots_path, epoch, L)
