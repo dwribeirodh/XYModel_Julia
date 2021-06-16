@@ -4,19 +4,20 @@ This package applies the Metropolis algorithm to generate thermodynamic data and
 ## Installation
 
 To install this package, clone the repository as follows:
+
 ```
 git clone https://github.com/dwribeirodh/XYModel_Julia.git
 ```
 
-Some Julia packages are needed to succesfully use the scrips contained in the package. To install the packages, run the following script.
+Some Julia packages are needed to succesfully use the scrips contained in the package. To install the packages, run the following command in the julia REPL.
 
 ```
-temporary, need to write script to dowload jl packages 
+julia> include("/path/to/XYModel_Julia/setup.jl")
 ```
 
-## Example Data
+## Simulation Parameters
 
-This section will include some example data
+To choose different simulation parameters, open the ```config.txt``` file and read the instructions. You can modify the parameters after the "=" sign under each simulation parameter.
 
 ## License
 
