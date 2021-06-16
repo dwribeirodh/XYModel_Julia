@@ -101,6 +101,22 @@ function get_cid_rand(L::Int, niter::Int, sc)::Float64
     return cid_rand
 end
 
+function get_exact_cv(T::Float64)::Float64
+    K = 1.0 / T
+    μ = besseli(1, K) / besseli(0, K)
+    cv = K^2 * (1 - μ / K - μ^2)
+    return cv
+end
+
+function get_integrand(T::Float64)::Float64
+    integrand = get_exact_cv(T) / T
+    return integrand
+end
+
+function get_exact_entropy_(T::Float64)::Float64
+    s = quadgk(get_integrand, 0.01, T)[1]
+end
+
 function get_exact_entropy(T)::Array
     """
     wrapper function of get_exact_entropy_
