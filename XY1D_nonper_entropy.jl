@@ -2,19 +2,13 @@
 
 using Distributions
 using Colors
-#using Images
 using Plots
 using ProgressBars
-using Elliptic
-using HCubature
 using FiniteDifferences
-using DataStructures
-using LinearAlgebra
 using SpecialFunctions
 using DelimitedFiles
 using PyCall
-using StatsBase
-
+using QuadGK
 
 function read_config_file(fname::String, path::String)
     """
@@ -23,43 +17,65 @@ function read_config_file(fname::String, path::String)
     the configurations
     """
     idx = split(fname, "_")
-    temp = parse(Float64, idx[3])
     config = readdlm(path * fname, ',')
-    return config, temp
+    return config
 end
 
-function dir_parser(path::String, sc)
+function compress_directory(configs_path::String,
+                    lz77_complexity_path::String,
+                    sc,
+                    n::Int)
     """
     parse directory of config data and return vector of entropy data
     and vector of temperature data
     """
-    println("Parsing directory and calculating entropy...")
-    dir_list = readdir(path)
-    S = zeros(length(dir_list))
-    T = []
-    for (idx,fname) in ProgressBar(enumerate(dir_list))
+    println("Parsing directory and compressing...")
+    dir_list = readdir(configs_path)
+    CID = zeros(length(dir_list))
+    for (idx, fname) in ProgressBar(enumerate(dir_list))
         if fname != ".DS_Store"
-            vec, temp = read_config_file(fname, path)
-            vec = reshape(vec, length(vec))
-            vec = discretize_data(vec)
-            s = get_entropy(vec, sc)
-            S[idx] = s
-            if !in(temp, T)
-                push!(T, temp)
-            end
+            vec = read_config_file(fname, configs_path)
+            vec = discretize_data(vec, n = n)
+            cid = get_cid(vec, sc)
+            CID[idx] = cid
+            save_cids(cid, lz77_complexity_path, idx)
+            vec = nothing
+            GC.gc()
         end
     end
-    println(string(length(S)))
-    println(string(length(T)))
+    return CID
+end
+
+function get_cid(vec, sc)
+    cid = sc.lempel_ziv_complexity(vec, "lz77")[2]
+end
+
+function get_entropy_(cid, sc,
+                    n, L;
+                    niter = 10)
+    """
+    computes entropy of vec based on LZ77 compression
+    """
+    cid_rand = get_cid_rand(L, niter, sc)
+    s = cid / cid_rand
+    return s
+end
+
+function get_entropy(CID::Array, T, sc, n, L)
+    println("Computing entropy...")
+    S = zeros(length(CID))
+    for (idx, cid) in ProgressBar(enumerate(CID))
+        S[idx] = get_entropy_(cid, sc, n, L)
+    end
     nsample = length(S) / length(T)
     nsample = convert(Int64, nsample)
-    S_avg = zeros(nsample)
     ctr = 0
     idx = 0
     s = 0.0
+    S_avg = zeros(length(T))
     for sample in S
         ctr += 1
-        s +=  get_entropy(sample, sc)
+        s += sample
         if ctr % nsample == 0
             idx += 1
             s = s / nsample
@@ -68,18 +84,7 @@ function dir_parser(path::String, sc)
             ctr = 0
         end
     end
-    return S_avg, T
-end
-
-function get_entropy(vec, sc; niter = 100)
-    """
-    computes entropy of vec based on LZ77 compression
-    """
-    L = length(vec)
-    cid_rand = get_cid_rand(L, niter, sc)
-    cid = sc.lempel_ziv_complexity(vec, "lz77")[2]
-    s = cid / cid_rand
-    return s * log(2)
+return S_avg
 end
 
 function get_cid_rand(L::Int, niter::Int, sc)::Float64
@@ -96,27 +101,10 @@ function get_cid_rand(L::Int, niter::Int, sc)::Float64
     return cid_rand
 end
 
-function get_exact_free_energy(T::Float64)::Float64
-    """
-    computes the exact free energy of 1D XY model w/ zero external
-    magnetic field.
-    """
-    f = -T * log(2pi*besseli(0, 1.0/T))
-    return f
-end
-
-function get_exact_entropy_(T::Float64)::Float64
-    """
-    calculates exact entropy of 1d xy model
-    """
-    s = - central_fdm(10, 1)(get_exact_free_energy, T)
-    return s
-end
-
 function get_exact_entropy(T)::Array
     """
     wrapper function of get_exact_entropy_
-    pass vector of temperatures, returns vector
+    pass range of temperatures, returns vector
     of exact normalize entropies
     """
     println("Calculating exact entropy...")
@@ -127,25 +115,12 @@ function get_exact_entropy(T)::Array
     return S
 end
 
-function discretize_data(vec::Array; binwidth = 0.025)::Vector
-    """
-    this method takes in a vec of data in radians and a desired
-    binwidth, and returns the binned data
-    """
-    n = 255
-    vec = vec .+ abs(minimum(vec))
-    vec = vec .% (2pi)
-    vec = vec ./ (2pi / n)
-    vec = floor.(vec) .+ 1
-    return vec
-end
-
-function plot_entropy(s_sim, s_exact, T_sim, T_exact, fpath)
-    println("Plotting and daving figures to: " * fpath)
+function plot_entropy(s_sim, s_exact, T_sim, T_exact, plots_path)
+    println("Plotting and saving figures to: " * plots_path)
     s_plot = plot(
         T_exact,
         s_exact,
-        title = "1D Ising Entropy",
+        title = "1D XY Entropy",
         label = "exact",
         tick_direction = :out,
         legend = :bottomright,
@@ -154,31 +129,117 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, fpath)
     scatter!(T_sim, s_sim, label = "LZ-77")
     xlabel!("T")
     ylabel!("S/N")
-    savefig(s_plot, fpath * "1d_xy_entropy.png")
+    savefig(s_plot, plots_path * "1d_xy_entropy.png")
+
+end
+
+function get_params()
+    params = Dict()
+    open("config.txt") do f
+        while !eof(f)
+            line = readline(f)
+            if '=' in line
+                line = split(line, "=")
+                key = line[1]
+                val = line[2]
+                val = convert_type(val)
+                params[key] = val
+            end
+        end
+    end
+    T_sim = params["T_sim_initial_value"]:params["T_sim_step_size"]:params["T_sim_final_value"]
+    T_exact = params["T_exact_initial_value"]:params["T_exact_step_size"]:params["T_exact_final_value"]
+    L = params["L"]
+    plots_path = params["plots_path"]
+    configs_path = params["configs_path"]
+    lz77_complexity_path = params["lz77_complexity_path"]
+    sweetsourcod = pyimport(params["sweetsourcod"])
+    return (T_sim,
+            T_exact,
+            L,
+            plots_path,
+            configs_path,
+            lz77_complexity_path,
+            sweetsourcod)
+end
+
+function is_bool(name::SubString{String})::Bool
+    if name == "true" || name == "false"
+        return true
+    else
+        return false
+    end
+end
+
+function is_int(name::SubString{String})::Bool
+    if '.' in name || 'e' in name
+        return false
+    else
+        return true
+    end
+end
+
+function is_float(name::SubString{String})::Bool
+    if '.' in name && name != "sweetsourcod.lempel_ziv"
+        return true
+    else
+        return false
+    end
+end
+
+function convert_type(name::SubString{String})
+    if is_float(name)
+        name = parse(Float64, name)
+    elseif is_int(name)
+        name = parse(Int64, name)
+    elseif is_bool(name)
+        name = parse(Bool, name)
+    else
+        name = convert(String, name)
+    end
+    return name
+end
+
+function discretize_data(vec::Array; n=256)::Array
+    """
+    this method takes in a vec of data in radians and a desired
+    binwidth, and returns the binned data
+    """
+    vec = vec .+ abs(minimum(vec))
+    vec = vec .% (2pi)
+    vec = vec ./ (2pi / n)
+    vec = floor.(vec)
+    vec = convert(Array{Int64, 2}, vec)
+    return vec
+end
+
+function save_cids(cid::Float64, lz77_complexity_path::String,
+                   idx::Int)
+    fname = "xy_cid_"*"_"*string(idx)*".txt"
+    open(lz77_complexity_path*fname, "w") do io
+        writedlm(io, cid)
+    end
+end
+
+function main()
+
+    T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
+
+    n = 255
+    CID = compress_directory(configs_path,
+                                lz_complexity_path,
+                                sc,
+                                n)
+
+    S_sim = get_entropy(CID, T_sim, sc, n, L)
+
+    S_exact = get_exact_entropy(T_exact)
+
+    plot_entropy(S_sim, S_exact, T_sim, T_exact, plots_path)
+
     println("---------- ### End of Program ### ----------")
 end
 
-function vec_to_array(vec)::Array
-    array = zeros(length(vec))
-    for (idx, item) in vec
-        array[idx] = item
-    end
-    return array
-end
 cd("/Users/danielribeiro/XYModel_Julia")
-### Set params ###
-path1 = "/Users/danielribeiro/XY_Results/06_14_21/configs/"
-fpath = "/Users/danielribeiro/XY_Results/06_14_21/thermo/"
-sc = pyimport("sweetsourcod.lempel_ziv")
-T_exact = 0.01:0.01:5
 
-### parse configs and calculate entropy ###
-S_sim, T_sim = dir_parser(path1, sc)
-
-### calculate exact entropy ###
-S_exact = get_exact_entropy(T_exact)
-
-### plpot data ###
-plot_entropy(S_sim, S_exact, T_sim, T_exact, fpath)
-
-plot(T_sim, S_sim)
+main()

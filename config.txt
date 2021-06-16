@@ -7,27 +7,25 @@ Set below params after the equals sign.
 
 --- T_sim ---
 the range of temperatures to be sampled using Metropolis algorithm.
-Example:
 
-initial value
-=0.01
-final value
-=5.0
-step size
-=0.2
+
+T_sim_initial_value=0.0
+
+T_sim_final_value=5.0
+
+T_sim_step_size=0.2
 
 
 
 --- T_exact ---
 the range of temperatures to be used in calculating the exact solutions.
-Example:
 
-initial value
-=0.01
-final value
-=5.0
-step
-=0.01
+
+T_exact_initial_value=0.01
+
+T_exact_final_value=5.0
+
+T_exact_step_size=0.01
 
 
 
@@ -35,48 +33,62 @@ step
 the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
-Example: 1e7
 
-=1e9
+epoch=10000000.0
 
 
 
 --- freq ---
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
-Example: 10000
 
-=10000
+freq=1000
 
 
 
 --- L ---
 the length of the lattice to simulate.
-Example: 1000
 
-=1000000
+L=10000
 
 
 
 --- is_random ---
 boolean value to determine whether to initialize the lattice as fully random (true)
 or fully correlated (false).
-Example: true
 
-=false
+is_random=false
 
 
 
 --- plots_path ---
 Choose path to save the thermodynamic data plots.
-Example: /path/to/thermo_folder
 
-=/Users/danielribeiro/XY_Results/06_14_21/thermo/
+plots_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/plots/
 
+
+
+--- energy_path ---
+Choose path to save internal energy of system (.txt files)
+
+energy_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/energy/
 
 
 --- configs_path ---
 Choose path to save configurations (.txt files)
-Example: path/to/configs_folder
 
-=/Users/danielribeiro/XY_Results/06_14_21/configs/
+configs_path=/Users/danielribeiro/XY_Results/06_16_21/configs/
+
+
+
+--- lz77_complexity_path ---
+Choose path to save LZ-77 complexity (.txt files)
+
+lz77_complexity_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/lz77_complexity/
+
+
+
+--- load_sweetsourcod ---
+this param will load sweetsourcod module, do not modify!
+
+sweetsourcod=sweetsourcod.lempel_ziv
