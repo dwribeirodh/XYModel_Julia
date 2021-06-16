@@ -1,19 +1,18 @@
 # Author: Daniel Ribeiro (ribei040@umn.edu)
 
 using Distributions
-using Colors
-using Images
 using Plots
 using ProgressBars
-using Elliptic
-using HCubature
 using FiniteDifferences
 using LinearAlgebra
 using SpecialFunctions
 using DelimitedFiles
 using PyCall
+using QuadGK
 
-function generate_lattice(L::Int, is_random::Bool)::Array
+"Lattice Methods"
+
+function generate_lattice(L::Real, is_random::Bool)::Array
     """
     generates a 1d xy lattice
     """
@@ -26,7 +25,7 @@ function generate_lattice(L::Int, is_random::Bool)::Array
     return lattice
 end
 
-function find_nbrs_index(i::Int, L::Int)
+function find_nbrs_index(i::Int, L::Real)
     """
     given an index i in lattice of length L,
     returns the indices of the nearest neighbors of i
@@ -62,6 +61,8 @@ function find_nbrs(vec::Array, index::Int)
     end
 end
 
+"Numerical Thermo Methods"
+
 function get_energy(vec)::Float64
     """
     computes the hamiltonian of the system given a
@@ -90,6 +91,7 @@ function get_thermo_beta(T::Float64)::Float64
     return 1.0 / T
 end
 
+"Metropolis Methods"
 function metropolis_step(vec::Array, energy::Float64, T::Float64)
     """
     performs one time step of metropolis algorithm
@@ -112,7 +114,10 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     return vec, energy
 end
 
-function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpath::String)
+function sweep_metropolis(T, epoch,
+                        freq::Int64, L::Int64,
+                        is_random::Bool, configs_path::String,
+                        energy_path::String)
     """
     given temperature T, runs a simulation using the Metropolis algorithm
     Params
@@ -143,20 +148,24 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpat
                 push!(M, mag)
             end
             if counter == (epoch/10)
-                save_configs(lattice, cpath, t, T)
+                save_configs(lattice, configs_path, t, T)
                 counter = 0
             end
         end
     end
     cv = β^2 * var(E) / L
     E = E ./ L
+    save_configs(E, energy_path, 0.0, T, is_energy=true)
     E = mean(E)
     M = M ./ L
     M = mean(M)
     return E, cv, M
 end
 
-function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool, cpath::String)
+function metropolis_wrapper(T, epoch,
+                            freq::Int64, L::Int64,
+                            is_random::Bool, configs_path::String,
+                            energy_path::String)
     """
     generates thermodynamic data for 1D xy using Metropolis.
     """
@@ -165,7 +174,10 @@ function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool, cp
     M = zeros(length(T))
     Cv = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
-        e, cv, mag = sweep_metropolis(temp, epoch, freq, L, is_random, cpath)
+        e, cv, mag = sweep_metropolis(temp, epoch,
+                                    freq, L,
+                                    is_random, configs_path,
+                                    energy_path)
         E[index] = e
         M[index] = mag
         Cv[index] = cv
@@ -173,6 +185,7 @@ function metropolis_wrapper(T, epoch, freq::Int64, L::Int64, is_random::Bool, cp
     return E, Cv, M
 end
 
+"Exact Thermo Methods"
 function get_exact_internal_energy(β::Float64)::Float64
     u = -besseli(1, β) / besseli(0, β)
 end
@@ -184,17 +197,29 @@ function get_exact_cv(T::Float64)::Float64
     return cv
 end
 
-function get_exact_properties(T)
+function get_integrand(T::Float64)::Float64
+    integrand = get_exact_cv(T) / T
+    return integrand
+end
+
+function get_exact_entropy(T::Float64)::Float64
+    s = quadgk(get_integrand, 0.01, T)[1]
+end
+
+function get_exact_properties(T, path::String)
     println("Calculating Exact Properties")
     cv = zeros(length(T))
     u = zeros(length(T))
+    s = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
         cv[index] = get_exact_cv(temp)
         u[index] = get_exact_internal_energy(1.0 / temp)
+        s[index] = get_exact_entropy(temp)
     end
     return u, cv
 end
 
+"Plot Methods"
 function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 
     println("Plotting and saving figures to: " * path)
@@ -205,7 +230,7 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
         title = "XY Energy",
         label = "exact",
         tick_direction = :out,
-        legend = :best,
+        legend = :bottomright,
         color = "black",
     )
     scatter!(T_sim, metro_data[1, :], label = "Metropolis")
@@ -226,67 +251,105 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
     xlabel!("T")
     ylabel!("Cv/N")
     savefig(cv_plot, path * "xy_cv_" * string(epoch) * "_" * string(L) * ".png")
-
-    println("---------- ### End of Program ### ----------")
 end
 
-function save_configs(vec::Array, path::String, spins_flipped::Float64, T::Float64)
-    fname = "xy_config_" * string(T) * "_" * string(spins_flipped) * ".txt"
+"Save Config Methods"
+function save_configs(vec::Array, path::String,
+                    spins_flipped::Float64, T::Float64;
+                    is_energy = false)
+    a = "xy_config_" * string(T) * "_" * string(spins_flipped) * ".txt"
+    b = "xy_energy_" * string(T) * "_" * ".txt"
+    fname = ""
+    is_energy ? fname=b : fname=a
     open(path * fname, "w") do io
         writedlm(io, vec)
     end
 end
 
-function get_entropy(x::Array)::Float64
-    L = length(x)
-    sc = pyimport("sweetsourcod.lempel_ziv")
-    rand_array = rand([0, 1], L)
-    cid_rand = sc.lempel_ziv_complexity(rand_array, "lz77")[2]
-    cid = sc.lempel_ziv_complexity(x, "lz77")[2]
-    s = cid / cid_rand
-    return s
-end
-
+"Config File Method"
 function get_params()
-    params = []
+    params = Dict()
     open("config.txt") do f
         while !eof(f)
             line = readline(f)
             if '=' in line
-                line = replace(line, "=" => "")
-                push!(params, line)
+                line = split(line, "=")
+                key = line[1]
+                val = line[2]
+                val = convert_type(val)
+                params[key] = val
             end
         end
     end
-    for i = 1:7
-        params[i] = parse(Float64, params[i])
-    end
-    for i = 8:9
-        params[i] = parse(Int, params[i])
-    end
-    params[10] = parse(Bool, params[10])
+    T_sim = params["T_sim_initial_value"]:params["T_sim_step_size"]:params["T_sim_final_value"]
+    T_exact = params["T_exact_initial_value"]:params["T_exact_step_size"]:params["T_exact_final_value"]
+    epoch = params["epoch"]
+    freq = params["freq"]
+    L = params["L"]
+    is_random = params["is_random"]
+    plots_path = params["plots_path"]
+    energy_path = params["energy_path"]
+    configs_path = params["configs_path"]
+    return (T_sim, T_exact,
+            epoch, freq,
+            L, is_random,
+            plots_path, energy_path,
+            configs_path)
+end
 
-    T_sim = params[1]:params[3]:params[2]
-    T_exact = params[4]:params[6]:params[5]
-    epoch = params[7]
-    freq = params[8]
-    L = params[9]
-    is_random = params[10]
-    plots_path = params[11]
-    configs_path = params[12]
+function is_bool(name::SubString{String})::Bool
+    if name == "true" || name == "false"
+        return true
+    else
+        return false
+    end
+end
 
-    return T_sim, T_exact, epoch, freq, L, is_random, plots_path, configs_path
+function is_int(name::SubString{String})::Bool
+    if '.' in name || 'e' in name
+        return false
+    else
+        return true
+    end
+end
+
+function is_float(name::SubString{String})::Bool
+    if '.' in name && name != "sweetsourcod.lempel_ziv"
+        return true
+    else
+        return false
+    end
+end
+
+function convert_type(name::SubString{String})
+    if is_float(name)
+        name = parse(Float64, name)
+    elseif is_int(name)
+        name = parse(Int64, name)
+    elseif is_bool(name)
+        name = parse(Bool, name)
+    else
+        name = convert(String, name)
+    end
+    return name
+end
+
+"Main Method"
+function main()
+    T_sim, T_exact, epoch, freq, L, is_random, plots_path, energy_path, configs_path = get_params()
+
+    e, cv, m = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path, energy_path)
+    metro_res = [e cv m]'
+
+
+    u, cv_exact= get_exact_properties(T_exact, plots_path)
+    exact_res = [u cv_exact]'
+
+    plot_data(exact_res, metro_res, T_exact, T_sim, plots_path, epoch, L)
+
+    println("---------- ### End of Program ### ----------")
 end
 
 cd("/Users/danielribeiro/XYModel_Julia")
 
-T_sim, T_exact, epoch, freq, L, is_random, plots_path, configs_path = get_params()
-
-e, cv, m = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path)
-metro_res = [e cv m]'
-
-
-u, cv_exact = get_exact_properties(T_exact)
-exact_res = [u cv_exact]'
-
-plot_data(exact_res, metro_res, T_exact, T_sim, plots_path, epoch, L)
+main()
