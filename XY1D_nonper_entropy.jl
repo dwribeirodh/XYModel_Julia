@@ -29,10 +29,9 @@ function compress_directory(configs_path::String,
     parse directory of config data and return vector of entropy data
     and vector of temperature data
     """
-    println("Parsing directory and compressing...")
     dir_list = readdir(configs_path)
     CID = zeros(length(dir_list))
-    for (idx, fname) in ProgressBar(enumerate(dir_list))
+    for (idx, fname) in enumerate(dir_list)
         if fname != ".DS_Store"
             vec = read_config_file(fname, configs_path)
             vec = discretize_data(vec, n = n)
@@ -58,13 +57,12 @@ function get_entropy_(cid, sc,
     """
     cid_rand = get_cid_rand(L, niter, sc)
     s = cid / cid_rand
-    return s
+    return (s / log2(n)) * log(2pi)
 end
 
 function get_entropy(CID::Array, T, sc, n, L)
-    println("Computing entropy...")
     S = zeros(length(CID))
-    for (idx, cid) in ProgressBar(enumerate(CID))
+    for (idx, cid) in enumerate(CID)
         S[idx] = get_entropy_(cid, sc, n, L)
     end
     nsample = length(S) / length(T)
@@ -117,6 +115,14 @@ function get_exact_entropy_(T::Float64)::Float64
     s = quadgk(get_integrand, 0.01, T)[1]
 end
 
+function get_f(T::Float64)::Float64
+    f = -T * log(2pi*besseli(0, 1.0/T))
+end
+
+function get_s(T::Float64)::Float64
+    s = -central_fdm(3, 1)(get_f, T)
+end
+
 function get_exact_entropy(T)::Array
     """
     wrapper function of get_exact_entropy_
@@ -126,12 +132,12 @@ function get_exact_entropy(T)::Array
     println("Calculating exact entropy...")
     S = zeros(length(T))
     for (idx, temp) in ProgressBar(enumerate(T))
-        S[idx] = get_exact_entropy_(temp)
+        S[idx] = get_s(temp)
     end
     return S
 end
 
-function plot_entropy(s_sim, s_exact, T_sim, T_exact, plots_path)
+function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
     println("Plotting and saving figures to: " * plots_path)
     s_plot = plot(
         T_exact,
@@ -142,7 +148,9 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, plots_path)
         legend = :bottomright,
         color = "black",
     )
-    scatter!(T_sim, s_sim, label = "LZ-77")
+    for (nval,s) in zip(n,s_sim)
+        scatter!(T_sim, s, label = "n = "*string(nval))
+    end
     xlabel!("T")
     ylabel!("S/N")
     savefig(s_plot, plots_path * "1d_xy_entropy.png")
@@ -241,17 +249,21 @@ function main()
 
     T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
 
-    n = 255
-    CID = compress_directory(configs_path,
-                                lz_complexity_path,
-                                sc,
-                                n)
+    nbins = [2^i-1 for i = 1:8]
+    S_sim = []
+    println("compressing directory and computing entropy...")
+    for n in ProgressBar(nbins)
+        CID = compress_directory(configs_path,
+                                    lz_complexity_path,
+                                    sc,
+                                    n)
 
-    S_sim = get_entropy(CID, T_sim, sc, n, L)
-
+        Sn = get_entropy(CID, T_sim, sc, n, L)
+        push!(S_sim, Sn)
+    end
     S_exact = get_exact_entropy(T_exact)
 
-    plot_entropy(S_sim, S_exact, T_sim, T_exact, plots_path)
+    plot_entropy(S_sim, S_exact, T_sim, T_exact, nbins, plots_path)
 
     println("---------- ### End of Program ### ----------")
 end
@@ -259,3 +271,14 @@ end
 cd("/Users/danielribeiro/XYModel_Julia")
 
 main()
+
+
+function get_f(T::Float64)::Float64
+    f = -T * log(2pi*besseli(0, 1.0/T))
+end
+
+function get_s(T::Float64)::Float64
+    s = -central_fdm(3, 1)(get_f, T)
+end
+
+println(get_s(100.0))
