@@ -9,7 +9,7 @@ To install this package, clone the repository as follows:
 git clone https://github.com/dwribeirodh/XYModel_Julia.git
 ```
 
-Some Julia packages are needed to succesfully use the scrips contained in the package. To install the packages, run the following command in the julia REPL.
+Some Julia packages are needed to successfully use the scrips contained in the package. To install the packages, run the following command in the julia REPL.
 
 ```
 julia> include("/path/to/XYModel_Julia/setup.jl")
