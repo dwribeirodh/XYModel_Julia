@@ -13,7 +13,7 @@ T_sim_initial_value=0.0
 
 T_sim_final_value=5.0
 
-T_sim_step_size=0.2
+T_sim_step_size=0.4
 
 
 
@@ -34,7 +34,7 @@ the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=10000000.0
+epoch=8000000000.0
 
 
 
@@ -42,14 +42,14 @@ epoch=10000000.0
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
 
-freq=1000
+freq=1000000
 
 
 
 --- L ---
 the length of the lattice to simulate.
 
-L=10000
+L=1000000
 
 
 
@@ -64,27 +64,27 @@ is_random=false
 --- plots_path ---
 Choose path to save the thermodynamic data plots.
 
-plots_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/plots/
+plots_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/plots/
 
 
 
 --- energy_path ---
 Choose path to save internal energy of system (.txt files)
 
-energy_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/energy/
+energy_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/energy/
 
 
 --- configs_path ---
 Choose path to save configurations (.txt files)
 
-configs_path=/Users/danielribeiro/XY_Results/06_16_21/configs/
+configs_path=/Users/danielribeiro/XY_Results/06_18_21/configs/
 
 
 
 --- lz77_complexity_path ---
 Choose path to save LZ-77 complexity (.txt files)
 
-lz77_complexity_path=/Users/danielribeiro/XY_Results/06_16_21/thermo_data/lz77_complexity/
+lz77_complexity_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/lz77_complexity/
 
 
 
