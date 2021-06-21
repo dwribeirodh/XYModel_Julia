@@ -4,13 +4,25 @@
 
 using Pkg
 
-Pkg.add("Distributions")
-Pkg.add("Colors")
-Pkg.add("ProgressBars")
-Pkg.add("Plots")
-Pkg.add("FiniteDifferences")
-Pkg.add("LinearAlgebra")
-Pkg.add("SpecialFunctions")
-Pkg.add("DelimitedFiles")
-Pkg.add("PyCall")
-Pkg.add("QuadGK")
+
+pkg_names = [
+                "Distributions";
+                "Colors";
+                "ProgressBars";
+                "Plots";
+                "FiniteDifferences";
+                "LinearAlgebra";
+                "SpecialFunctions";
+                "DelimitedFiles";
+                "QuadGK"
+        ]
+
+for name in pkg_names
+        Pkg.add(name)
+end
+
+check = keys(Pkg.installed())
+
+for name in pkg_names
+        !in(name, check) ? println("Package < "*name *" > failed to install") : print("")
+end
