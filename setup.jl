@@ -2,7 +2,7 @@
 # XYModel_Julia.
 # Any questions, email ribei040@umn.edu
 
-Using Pkg
+using Pkg
 
 Pkg.add("Distributions")
 Pkg.add("Colors")
@@ -13,3 +13,4 @@ Pkg.add("LinearAlgebra")
 Pkg.add("SpecialFunctions")
 Pkg.add("DelimitedFiles")
 Pkg.add("PyCall")
+Pkg.add("QuadGK")
