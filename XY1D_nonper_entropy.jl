@@ -28,8 +28,10 @@ function compress_directory(configs_path::String,
     """
     parse directory of config data and return vector of CID data
     """
+    #GC.gc()
     dir_list = readdir(configs_path)
     CID = zeros(length(dir_list))
+    vec = zeros(1000000)
     for (idx, fname) in enumerate(dir_list)
         if fname != ".DS_Store"
             vec = read_config_file(fname, configs_path)
@@ -37,10 +39,9 @@ function compress_directory(configs_path::String,
             cid = get_cid(vec, sc)
             CID[idx] = cid
             save_cids(cid, lz77_complexity_path, idx)
-            vec = nothing
-            GC.gc()
         end
     end
+    vec = 0
     return CID
 end
 
@@ -53,7 +54,7 @@ end
 
 function get_entropy_(cid, sc,
                     n, L;
-                    niter = 10)
+                    niter = 1)
     """
     computes entropy of vec based on LZ77 compression
     """
@@ -172,7 +173,7 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
 
         )
     for (idx,temp) in enumerate(collect(T_sim))
-        if temp in [2.0, 3.0, 4.0, 5.0]
+        if temp in [2.0, 2.8, 3.2, 4.8]
             plot!(n, S[:,idx], label = "T = "*string(temp))
         end
     end
@@ -273,11 +274,14 @@ function main()
 
     T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
 
-    nbins = [2^i for i = 1:8]
-    nbins[8] = nbins[8]-1
+    nbins = [2^i for i = 3:8]
+    nbins[end] = nbins[end]-1
     S_sim = []
     println("compressing directory and computing entropy...")
     for (idx,n) in ProgressBar(enumerate(nbins))
+        GC.enable(true)
+        GC.gc(true)
+        println(Base.gc_live_bytes())
         CID = compress_directory(configs_path,
                                     lz_complexity_path,
                                     sc,
@@ -292,14 +296,4 @@ function main()
 end
 
 cd("/Users/danielribeiro/XYModel_Julia")
-
 main()
-
-T = 0.01:0.01:5
-
-s = zeros(length(T))
-for (idx,temp) in enumerate(T)
-    s[idx] = get_exact_entropy_(temp)
-end
-
-plot(T,s)
