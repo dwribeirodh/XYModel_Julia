@@ -155,7 +155,9 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
     )
 
     for (nval,s) in zip(n,s_sim)
-        plot!(T_sim, s, label = "n = "*string(nval))
+        if nval in [8, 64, 160, 200, 255]
+            plot!(T_sim, s, label = "n = "*string(nval))
+        end
     end
     xlabel!("T")
     ylabel!("S/N")
@@ -170,7 +172,6 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
     n_plot = plot(
         tick_direction = :out,
         legend = :bottomright,
-
         )
     for (idx,temp) in enumerate(collect(T_sim))
         if temp in [2.0, 2.8, 3.2, 4.8]
@@ -274,14 +275,13 @@ function main()
 
     T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
 
-    nbins = [2^i for i = 3:8]
+    nbins = [2*i for i = 4:4:128]
     nbins[end] = nbins[end]-1
     S_sim = []
     println("compressing directory and computing entropy...")
     for (idx,n) in ProgressBar(enumerate(nbins))
         GC.enable(true)
         GC.gc(true)
-        println(Base.gc_live_bytes())
         CID = compress_directory(configs_path,
                                     lz_complexity_path,
                                     sc,
