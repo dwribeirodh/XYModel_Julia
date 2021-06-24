@@ -4,7 +4,6 @@ using Distributions
 using Colors
 using Plots
 using ProgressBars
-using FiniteDifferences
 using SpecialFunctions
 using DelimitedFiles
 using PyCall
@@ -28,12 +27,12 @@ function compress_directory(configs_path::String,
     """
     parse directory of config data and return vector of CID data
     """
-    #GC.gc()
     dir_list = readdir(configs_path)
     CID = zeros(length(dir_list))
-    vec = zeros(1000000)
     for (idx, fname) in enumerate(dir_list)
         if fname != ".DS_Store"
+            check_mem()
+            println(fname)
             vec = read_config_file(fname, configs_path)
             vec = discretize_data(vec, n = n)
             cid = get_cid(vec, sc)
@@ -41,7 +40,6 @@ function compress_directory(configs_path::String,
             save_cids(cid, lz77_complexity_path, idx)
         end
     end
-    vec = 0
     return CID
 end
 
@@ -49,28 +47,31 @@ function get_cid(vec, sc)
     """
     compute the CID of vec
     """
+    check_mem()
     cid = sc.lempel_ziv_complexity(vec, "lz77")[2]
 end
 
-function get_entropy_(cid, sc,
-                    n, L;
-                    niter = 1)
+function get_entropy_(cid, cid_rand,
+                    sc, n, L;
+                    niter = 5)
     """
     computes entropy of vec based on LZ77 compression
     """
-    cid_rand = get_cid_rand(L, niter, sc)
     s = cid / cid_rand
-    return (s / log2(n)) * log(2pi) #this is the one weve been using
+    return (s / log2(n)) * log(2pi) #this is the one we've been using
 
 end
 
-function get_entropy(CID::Array, T, sc, n, L)
+function get_entropy(CID::Array, CID_rand, T, sc, n, L)
+    """
+    wrapper function of get_entropy_
+    computes vector of entropies given a vector CID
+    """
     S = zeros(length(CID))
     for (idx, cid) in enumerate(CID)
-        S[idx] = get_entropy_(cid, sc, n, L)
+        S[idx] = get_entropy_(cid, CID_rand, sc, n, L)
     end
-    nsample = length(S) / length(T)
-    nsample = convert(Int64, nsample)
+    nsample = length(S) ÷ length(T)
     ctr = 0
     idx = 0
     s = 0.0
@@ -104,6 +105,11 @@ function get_cid_rand(L::Int, niter::Int, sc)::Float64
 end
 
 function get_exact_cv(T::Float64)::Float64
+    """
+    computes exact heat capacity of 1D
+    XY model given a temperature T
+    https://en.wikipedia.org/wiki/Classical_XY_model#One_dimension
+    """
     K = 1.0 / T
     μ = besseli(1, K) / besseli(0, K)
     cv = K^2 * (1 - μ / K - μ^2)
@@ -111,27 +117,40 @@ function get_exact_cv(T::Float64)::Float64
 end
 
 function get_integrand(T::Float64)::Float64
+    """
+    returns the integrand of S = ∫(Cv/T)dT
+    given a temperature T
+    """
     integrand = get_exact_cv(T) / T
     return integrand
 end
 
 function get_exact_entropy_(T::Float64)::Float64
+    """
+    computes the entropy based on the formula
+    S = ∫(Cv/T)dT. Numerical integration is employed
+    from 0.01 to T
+    """
     s = quadgk(get_integrand, 0.01, T)[1]
 end
 
-function get_f(T::Float64)::Float64
-    f = -T * log(2pi*besseli(0, 1.0/T))
-end
-
-function get_s(T::Float64)::Float64
-    s = -central_fdm(3, 1)(get_f, T)
-end
+# function get_f(T::Float64)::Float64
+#     """
+#     computes the free energy of model
+#     given temperature T
+#     """
+#     f = -T * log(2pi*besseli(0, 1.0/T))
+# end
+#
+# function get_s(T::Float64)::Float64
+#     s = -central_fdm(3, 1)(get_f, T)
+# end
 
 function get_exact_entropy(T)::Array
     """
     wrapper function of get_exact_entropy_
     pass range of temperatures, returns vector
-    of exact normalize entropies
+    of exact normalized entropies
     """
     println("Calculating exact entropy...")
     S = zeros(length(T))
@@ -142,6 +161,15 @@ function get_exact_entropy(T)::Array
 end
 
 function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
+    """
+    plots entropy data and saves figures to
+    plots_path
+    Plots are:
+        1) 1d_xy_entropy.png --> entropy vs temperature for different
+        number of bins n
+        2) 1d_xy_entropyvsbins.png --> entropy vs n for different
+        temperatures
+    """
     println("Plotting and saving figures to: " * plots_path)
     s_plot = plot(
         T_exact,
@@ -155,9 +183,7 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
     )
 
     for (nval,s) in zip(n,s_sim)
-        if nval in [8, 64, 160, 200, 255]
-            plot!(T_sim, s, label = "n = "*string(nval))
-        end
+        plot!(T_sim, s, label = "n = "*string(nval))
     end
     xlabel!("T")
     ylabel!("S/N")
@@ -174,7 +200,7 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
         legend = :bottomright,
         )
     for (idx,temp) in enumerate(collect(T_sim))
-        if temp in [2.0, 2.8, 3.2, 4.8]
+        if temp in [0.4, 2.0, 2.8, 3.2, 4.8]
             plot!(n, S[:,idx], label = "T = "*string(temp))
         end
     end
@@ -184,6 +210,9 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
 end
 
 function get_params()
+    """
+    reads config.txt file and returns script parameters
+    """
     params = Dict()
     open("config.txt") do f
         while !eof(f)
@@ -214,6 +243,9 @@ function get_params()
 end
 
 function is_bool(name::SubString{String})::Bool
+    """
+    helper function of get_params
+    """
     if name == "true" || name == "false"
         return true
     else
@@ -222,6 +254,9 @@ function is_bool(name::SubString{String})::Bool
 end
 
 function is_int(name::SubString{String})::Bool
+    """
+    helper function of get_params
+    """
     if '.' in name || 'e' in name
         return false
     else
@@ -230,6 +265,9 @@ function is_int(name::SubString{String})::Bool
 end
 
 function is_float(name::SubString{String})::Bool
+    """
+    helper function of get_params
+    """
     if '.' in name && name != "sweetsourcod.lempel_ziv"
         return true
     else
@@ -238,6 +276,9 @@ function is_float(name::SubString{String})::Bool
 end
 
 function convert_type(name::SubString{String})
+    """
+    helper function of get_params
+    """
     if is_float(name)
         name = parse(Float64, name)
     elseif is_int(name)
@@ -252,8 +293,8 @@ end
 
 function discretize_data(vec::Array; n=256)::Array
     """
-    this method takes in a vec of data in radians and a desired
-    binwidth, and returns the binned data
+    this method takes in a vec of data in radians and n bins
+    and returns the discretized angle values
     """
     vec = vec .+ abs(minimum(vec))
     vec = vec .% (2pi)
@@ -265,29 +306,41 @@ end
 
 function save_cids(cid::Float64, lz77_complexity_path::String,
                    idx::Int)
+    """
+    saves cid values
+    """
     fname = "xy_cid_"*"_"*string(idx)*".txt"
     open(lz77_complexity_path*fname, "w") do io
         writedlm(io, cid)
     end
 end
 
+function check_mem()
+    """
+    performs full garbage collection
+    ensures no segfaults take place
+    """
+    GC.gc(true)
+end
+
 function main()
+    """
+    main method of script
+    """
 
     T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
 
-    nbins = [2*i for i = 4:4:128]
-    nbins[end] = nbins[end]-1
+    nbins = [2*i for i = 1:2:15]
     S_sim = []
+    cid_rand = get_cid_rand(L, 5, sc)
     println("compressing directory and computing entropy...")
     for (idx,n) in ProgressBar(enumerate(nbins))
-        GC.enable(true)
-        GC.gc(true)
         CID = compress_directory(configs_path,
                                     lz_complexity_path,
                                     sc,
                                     n)
 
-        Sn = get_entropy(CID, T_sim, sc, n, L)
+        Sn = get_entropy(CID, cid_rand, T_sim, sc, n, L)
         push!(S_sim, Sn)
     end
     S_exact = get_exact_entropy(T_exact)
