@@ -14,7 +14,8 @@ pkg_names = [
                 "LinearAlgebra";
                 "SpecialFunctions";
                 "DelimitedFiles";
-                "QuadGK"
+                "QuadGK";
+                "Dates"
         ]
 
 for name in pkg_names
