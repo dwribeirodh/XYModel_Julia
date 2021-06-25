@@ -9,6 +9,7 @@ using SpecialFunctions
 using DelimitedFiles
 using PyCall
 using QuadGK
+using Dates
 
 "Lattice Methods"
 
@@ -155,7 +156,7 @@ function sweep_metropolis(T, epoch,
     end
     cv = β^2 * var(E) / L
     E = E ./ L
-    save_configs(E, energy_path, 0.0, T, is_energy=true)
+    #save_configs(E, energy_path, 0.0, T, is_energy=true)
     E = mean(E)
     M = M ./ L
     M = mean(M)
@@ -254,14 +255,14 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 end
 
 "Save Config Methods"
-function save_configs(vec::Array, path::String,
+function save_configs(vec, path::String,
                     spins_flipped::Float64, T::Float64;
                     is_energy = false)
     a = "xy_config_" * string(T) * "_" * string(spins_flipped) * ".txt"
     b = "xy_energy_" * string(T) * "_" * ".txt"
     fname = ""
     is_energy ? fname=b : fname=a
-    open(path * fname, "w") do io
+    open(path*fname, "w") do io
         writedlm(io, vec)
     end
 end
@@ -287,14 +288,11 @@ function get_params()
     freq = params["freq"]
     L = params["L"]
     is_random = params["is_random"]
-    plots_path = params["plots_path"]
-    energy_path = params["energy_path"]
-    configs_path = params["configs_path"]
+    XY_path = params["XY_path"]
     return (T_sim, T_exact,
             epoch, freq,
             L, is_random,
-            plots_path, energy_path,
-            configs_path)
+            XY_path)
 end
 
 function is_bool(name::SubString{String})::Bool
@@ -336,7 +334,15 @@ end
 
 "Main Method"
 function main()
-    T_sim, T_exact, epoch, freq, L, is_random, plots_path, energy_path, configs_path = get_params()
+    T_sim, T_exact, epoch, freq, L, is_random, xy_repo_path = get_params()
+
+    today_date = string(today())
+    mkpath("Simulation_Results/"*today_date*"/configs/")
+    mkpath("Simulation_Results/"*today_date*"/plots/")
+    mkpath("Simulation_Results/"*today_date*"/energy/")
+    configs_path = xy_repo_path*"/Simulation_Results/"*today_date*"/configs/"
+    plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
+    energy_path =  xy_repo_path*"/Simulation_Results/"*today_date*"/energy/"
 
     e, cv, m = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path, energy_path)
     metro_res = [e cv m]'
@@ -349,7 +355,5 @@ function main()
 
     println("---------- ### End of Program ### ----------")
 end
-
-cd("/Users/danielribeiro/XYModel_Julia")
 
 main()
