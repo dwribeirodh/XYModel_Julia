@@ -2,6 +2,8 @@ Set params for running the 1D XY simulation using the Metropolis algorithm.
 This config file will be read by the 1DXY_nonper.jl script to run the simulation
 It will then generate equilibrium configurations and thermodynamic data.
 If you have any more questions, email ribei040@umn.edu
+Make sure you are inside the XYModel_Julia directory when trying to
+run the simulation.
 
 Set below params after the equals sign.
 
@@ -13,7 +15,7 @@ T_sim_initial_value=0.0
 
 T_sim_final_value=5.0
 
-T_sim_step_size=0.4
+T_sim_step_size=0.2
 
 
 
@@ -34,7 +36,7 @@ the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=8000000000.0
+epoch=50000000.0
 
 
 
@@ -42,14 +44,14 @@ epoch=8000000000.0
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
 
-freq=1000000
+freq=1000
 
 
 
 --- L ---
 the length of the lattice to simulate.
 
-L=1000000
+L=10000
 
 
 
@@ -61,30 +63,11 @@ is_random=false
 
 
 
---- plots_path ---
-Choose path to save the thermodynamic data plots.
+--- XY_path ---
+this is the path to which you cloned XYModel_Julia. For example, for me
+it would be /Users/danielribeiro/XYModel_Julia
 
-plots_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/plots/
-
-
-
---- energy_path ---
-Choose path to save internal energy of system (.txt files)
-
-energy_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/energy/
-
-
---- configs_path ---
-Choose path to save configurations (.txt files)
-
-configs_path=/Users/danielribeiro/XY_Results/06_18_21/configs/
-
-
-
---- lz77_complexity_path ---
-Choose path to save LZ-77 complexity (.txt files)
-
-lz77_complexity_path=/Users/danielribeiro/XY_Results/06_18_21/thermo_data/lz77_complexity/
+XY_path=/Users/danielribeiro/XYModel_Julia
 
 
 
