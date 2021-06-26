@@ -68,10 +68,3 @@ this is the path to which you cloned XYModel_Julia. For example, for me
 it would be /Users/danielribeiro/XYModel_Julia
 
 XY_path=/Users/danielribeiro/XYModel_Julia
-
-
-
---- load_sweetsourcod ---
-this param will load sweetsourcod module, do not modify!
-
-sweetsourcod=sweetsourcod.lempel_ziv
