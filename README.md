@@ -20,20 +20,20 @@ julia> include("/path/to/XYModel_Julia/setup.jl")
 To choose different simulation parameters, open the ```config.txt``` file and read the instructions. You can modify the parameters after the "=" sign under each simulation parameter.
 
 ## Simulation Results
-I have included here some plots generated with the scripts ```XY1D_nonper.jl ``` (runs the Monte Carlo simulation),
-and ```XY1D_nonper_entropy.jl ``` (lossless compression and entropy computation).
+I have included here some plots generated with the scripts ```XY1D_nonper.jl``` (runs the Monte Carlo simulation),
+and ```XY1D_nonper_entropy.jl``` (lossless compression and entropy computation).
 
 - *Internal Energy*
 
-      ![energy_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/xy_energy_5.0e7_100000.png)
+![energy_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/xy_energy_5.0e7_100000.png)
 
 - *Specific Heat Capacity*
 
-      ![cv_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/xy_cv_5.0e7_100000.png)
+![cv_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/xy_cv_5.0e7_100000.png)
 
 - *Entropy*
 
-      ![entropy_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/1d_xy_entropy.png)
+![entropy_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/1d_xy_entropy.png)
 
 The simulation parameters used to obtain these results were:
       * L = 100000
