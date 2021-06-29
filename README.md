@@ -36,9 +36,10 @@ and ```XY1D_nonper_entropy.jl``` (lossless compression and entropy computation).
 ![entropy_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-06-28/plots/1d_xy_entropy.png)
 
 The simulation parameters used to obtain these results were:
-      * L = 100000
-      * freq = 100
-      * epoch = 50000000.0
+
+* L = 100000
+* freq = 100
+* epoch = 50000000.0
 
 ## License
 
