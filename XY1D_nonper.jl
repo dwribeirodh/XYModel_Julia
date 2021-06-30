@@ -1,4 +1,5 @@
 # Author: Daniel Ribeiro (ribei040@umn.edu)
+# Compress configurations and compute entropy
 
 using Distributions
 using Plots
@@ -364,4 +365,3 @@ function main()
 end
 
 main()
-println("this script is changed")
