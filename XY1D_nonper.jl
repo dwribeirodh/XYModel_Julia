@@ -80,13 +80,13 @@ function get_energy(vec)::Float64
     return -energy
 end
 
-function get_magnetization(vec)::Float64
-    mag = 0
-    for spin in vec
-        mag += spin
-    end
-    return mag
-end
+# function get_magnetization(vec)::Float64
+#     mag = 0
+#     for spin in vec
+#         mag += spin
+#     end
+#     return mag
+# end
 
 function get_thermo_beta(T::Float64)::Float64
     return 1.0 / T
@@ -108,11 +108,13 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     end
     ΔE = -ΔE
     y = exp(-β * ΔE)
+    flip = false
     if rand() < y
         vec[rand_spin] = vec[rand_spin] + dθ
         energy = energy + ΔE
+        flip = true
     end
-    return vec, energy
+    return vec, energy, flip
 end
 
 function sweep_metropolis(T, epoch,
@@ -134,22 +136,27 @@ function sweep_metropolis(T, epoch,
     β = get_thermo_beta(T)
     lattice = generate_lattice(L, is_random)
     energy = get_energy(lattice)
-    time = 1:epoch
+    #time = 1:epoch
     cv = 0
     E = []
     M = []
     counter = 0
-    for t in time
-        lattice, energy = metropolis_step(lattice, energy, T)
-        if t > 0.50 * epoch
+    time = 0.0
+    #for t in time
+    while time < epoch
+        lattice, energy, flip = metropolis_step(lattice, energy, T)
+        if flip
+            time += 1.0
+        end
+        if time > 0.50 * epoch
             counter += 1
-            if t % freq == 0
-                mag = get_magnetization(lattice)
+            if time % freq == 0
+                #mag = get_magnetization(lattice)
                 push!(E, energy)
-                push!(M, mag)
+                #push!(M, mag)
             end
             if counter == (epoch/10)
-                save_configs(lattice, configs_path, t, T)
+                save_configs(lattice, configs_path, time, T)
                 counter = 0
             end
         end
@@ -158,9 +165,9 @@ function sweep_metropolis(T, epoch,
     E = E ./ L
     #save_configs(E, energy_path, 0.0, T, is_energy=true)
     E = mean(E)
-    M = M ./ L
-    M = mean(M)
-    return E, cv, M
+    #M = M ./ L
+    #M = mean(M)
+    return E, cv
 end
 
 function metropolis_wrapper(T, epoch,
@@ -175,15 +182,15 @@ function metropolis_wrapper(T, epoch,
     M = zeros(length(T))
     Cv = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
-        e, cv, mag = sweep_metropolis(temp, epoch,
+        e, cv = sweep_metropolis(temp, epoch,
                                     freq, L,
                                     is_random, configs_path,
                                     energy_path)
         E[index] = e
-        M[index] = mag
+        #M[index] = mag
         Cv[index] = cv
     end
-    return E, Cv, M
+    return E, Cv
 end
 
 "Exact Thermo Methods"
@@ -227,28 +234,28 @@ function plot_data(exact_data, metro_data, T_exact, T_sim, path, epoch, L)
 
     e_plot = plot(
         T_exact,
-        exact_data[1, :],
+        exact_data[:, 1],
         title = "XY Energy",
         label = "exact",
         tick_direction = :out,
         legend = :bottomright,
         color = "black",
     )
-    scatter!(T_sim, metro_data[1, :], label = "Metropolis")
+    scatter!(T_sim, metro_data[:, 1], label = "Metropolis")
     xlabel!("T")
     ylabel!("E/N")
     savefig(e_plot, path * "xy_energy_" * string(epoch) * "_" * string(L) * ".png")
 
     cv_plot = plot(
         T_exact,
-        exact_data[2, :],
+        exact_data[:, 2],
         title = "XY Cv",
         label = "exact",
         tick_direction = :out,
         legend = :best,
         color = "black",
     )
-    scatter!(T_sim, metro_data[2, :], label = "Metropolis")
+    scatter!(T_sim, metro_data[:, 2], label = "Metropolis")
     xlabel!("T")
     ylabel!("Cv/N")
     savefig(cv_plot, path * "xy_cv_" * string(epoch) * "_" * string(L) * ".png")
@@ -344,12 +351,12 @@ function main()
     plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
     energy_path =  xy_repo_path*"/Simulation_Results/"*today_date*"/energy/"
 
-    e, cv, m = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path, energy_path)
-    metro_res = [e cv m]'
+    e, cv = metropolis_wrapper(T_sim, epoch, freq, L, is_random, configs_path, energy_path)
+    metro_res = [e cv]
 
 
     u, cv_exact= get_exact_properties(T_exact, plots_path)
-    exact_res = [u cv_exact]'
+    exact_res = [u cv_exact]
 
     plot_data(exact_res, metro_res, T_exact, T_sim, plots_path, epoch, L)
 
