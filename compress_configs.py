@@ -46,6 +46,6 @@ def get_cid(vec):
     cid = lempel_ziv_complexity(vec, "lz77")[1]
     return cid
 
-# path = "/Users/danielribeiro/XY_Results/06_18_21/configs/"
+path = "/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia/Simulation_Results/2021-07-01/configs/"
 
-# cid = parse_directory(path, 2)
+cid = parse_directory(path, 2)
