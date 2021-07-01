@@ -1,13 +1,14 @@
 # Author: Daniel Ribeiro (ribei040@umn.edu)
 
-using Distributions
+#using Distributions
 using Colors
 using Plots
 using ProgressBars
-using SpecialFunctions
-using DelimitedFiles
-using PyCall
-using QuadGK
+using SpecialFunctions: besseli
+using DelimitedFiles: readdlm, writedlm
+using PyCall: pyimport
+using QuadGK: quadgk
+using Dates: today
 
 function read_config_file(fname::String, path::String)
     """
@@ -21,8 +22,8 @@ function read_config_file(fname::String, path::String)
 end
 
 function compress_directory(configs_path::String,
-                    lz77_complexity_path::String,
                     sc,
+                    L,
                     n::Int)
     """
     parse directory of config data and return vector of CID data
@@ -31,29 +32,26 @@ function compress_directory(configs_path::String,
     CID = zeros(length(dir_list))
     for (idx, fname) in enumerate(dir_list)
         if fname != ".DS_Store"
-            check_mem()
-            println(fname)
             vec = read_config_file(fname, configs_path)
             vec = discretize_data(vec, n = n)
             cid = get_cid(vec, sc)
             CID[idx] = cid
-            save_cids(cid, lz77_complexity_path, idx)
+            #save_cids(cid, lz77_complexity_path, idx)
         end
     end
     return CID
 end
 
-function get_cid(vec, sc)
+function get_cid(vec, sc)::Float64
     """
     compute the CID of vec
     """
-    check_mem()
+    #check_mem()
     cid = sc.lempel_ziv_complexity(vec, "lz77")[2]
 end
 
 function get_entropy_(cid, cid_rand,
-                    sc, n, L;
-                    niter = 5)
+                    sc, n, L)
     """
     computes entropy of vec based on LZ77 compression
     """
@@ -134,18 +132,6 @@ function get_exact_entropy_(T::Float64)::Float64
     s = quadgk(get_integrand, 0.01, T)[1]
 end
 
-# function get_f(T::Float64)::Float64
-#     """
-#     computes the free energy of model
-#     given temperature T
-#     """
-#     f = -T * log(2pi*besseli(0, 1.0/T))
-# end
-#
-# function get_s(T::Float64)::Float64
-#     s = -central_fdm(3, 1)(get_f, T)
-# end
-
 function get_exact_entropy(T)::Array
     """
     wrapper function of get_exact_entropy_
@@ -200,7 +186,7 @@ function plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path)
         legend = :bottomright,
         )
     for (idx,temp) in enumerate(collect(T_sim))
-        if temp in [0.4, 2.0, 2.8, 3.2, 4.8]
+        if temp in [0.4, 0.8, 2.0, 2.8, 3.2, 4.8]
             plot!(n, S[:,idx], label = "T = "*string(temp))
         end
     end
@@ -229,17 +215,11 @@ function get_params()
     T_sim = params["T_sim_initial_value"]:params["T_sim_step_size"]:params["T_sim_final_value"]
     T_exact = params["T_exact_initial_value"]:params["T_exact_step_size"]:params["T_exact_final_value"]
     L = params["L"]
-    plots_path = params["plots_path"]
-    configs_path = params["configs_path"]
-    lz77_complexity_path = params["lz77_complexity_path"]
-    sweetsourcod = pyimport(params["sweetsourcod"])
+    xy_path = params["XY_path"]
     return (T_sim,
             T_exact,
             L,
-            plots_path,
-            configs_path,
-            lz77_complexity_path,
-            sweetsourcod)
+            xy_path)
 end
 
 function is_bool(name::SubString{String})::Bool
@@ -327,18 +307,23 @@ function main()
     """
     main method of script
     """
+    sc = pyimport("sweetsourcod.lempel_ziv")
+    today_date = string(today())
+    T_sim, T_exact, L, xy_path = get_params()
+    #cd("Simulation_Results")
+    configs_path = xy_path*"/Simulation_Results/"*today_date*"/"*"configs"*"/"
+    plots_path = xy_path*"/Simulation_Results/"*today_date*"/"*"plots"*"/"
 
-    T_sim, T_exact, L, plots_path, configs_path, lz_complexity_path, sc = get_params()
 
-    nbins = [2*i for i = 1:2:15]
+    nbins = [2*i for i = 4:2:15]
     S_sim = []
     cid_rand = get_cid_rand(L, 5, sc)
     println("compressing directory and computing entropy...")
     for (idx,n) in ProgressBar(enumerate(nbins))
         CID = compress_directory(configs_path,
-                                    lz_complexity_path,
-                                    sc,
-                                    n)
+                                sc,
+                                L,
+                                n)
 
         Sn = get_entropy(CID, cid_rand, T_sim, sc, n, L)
         push!(S_sim, Sn)
@@ -348,5 +333,4 @@ function main()
     println("---------- ### End of Program ### ----------")
 end
 
-cd("/Users/danielribeiro/XYModel_Julia")
 main()
