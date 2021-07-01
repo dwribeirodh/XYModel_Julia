@@ -11,11 +11,11 @@ Set below params after the equals sign.
 the range of temperatures to be sampled using Metropolis algorithm.
 
 
-T_sim_initial_value=0.0
+T_sim_initial_value=0.2
 
 T_sim_final_value=5.0
 
-T_sim_step_size=0.02
+T_sim_step_size=0.2
 
 
 
@@ -36,7 +36,7 @@ the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=5000000.0
+epoch=10000000.0
 
 
 
@@ -44,14 +44,14 @@ epoch=5000000.0
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
 
-freq=1000
+freq=10000
 
 
 
 --- L ---
 the length of the lattice to simulate.
 
-L=100000
+L=10000
 
 
 
