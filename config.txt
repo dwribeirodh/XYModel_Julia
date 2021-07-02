@@ -36,7 +36,7 @@ the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=10000000.0
+epoch=5000000000.0
 
 
 
@@ -51,7 +51,7 @@ freq=10000
 --- L ---
 the length of the lattice to simulate.
 
-L=10000
+L=1000000
 
 
 
@@ -67,4 +67,4 @@ is_random=false
 this is the path to which you cloned XYModel_Julia. For example, for me
 it would be /Users/danielribeiro/XYModel_Julia
 
-XY_path=/Users/danielribeiro/XYModel_Julia
+XY_path=/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia
