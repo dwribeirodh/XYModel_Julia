@@ -131,11 +131,57 @@ def get_exact_entropy(T):
     print("Calculating exact entropy...")
     S = zeros(len(T), dtype = float)
     for (idx, temp) in tqdm( enumerate(T) ):
+        S[idx] = get_exact_entropy_(temp) / log2(exp(1))
+    return S
+
+def plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path):
+    """
+    plots entropy data and saves figures to
+    plots_path
+    Plots are:
+        1) 1d_xy_entropy.png --> entropy vs temperature for different
+        number of bins n
+        2) 1d_xy_entropyvsbins.png --> entropy vs n for different
+        temperatures
+    """
+    print("Plotting and saving figures to: " + plots_path)
+
+    fig, ax = plt.subplots()
+    ax.plot(
+        T_exact,
+        s_exact,
+        c = "k",
+        label = "exact",
+        lw = 1.5
+    )
+
+    for (nval,s) in zip(n, s_sim):
+        ax.plot(T_sim, s, label = "{}".format(nval))
+    ax.set_xlabel("T")
+    ax.set_ylabel("S/N")
+    ax.tick_params(direction = 'out')
+    plt.savefig(plots_path + "1d_xy_entropy.png", format = "png")
+
+    i,j = len(s_sim), len(s_sim[1])
+    S = np.zeros()
+    for idx in range(1, i+1):
+        S[idx, :] = s_sim[idx]
+
+    fig, ax = plt.subplots()
+    #for (idx, temp) in enumerate(T_sim)
 
 
+    # TODO: finish this method
+    return 0
 
+configs_path = "/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia"
 
+L = 1000000
+nbins = [2*i for i in range(4, 15, 2)]
+S_sim = np.array([])
+cid_rand = get_cid_rand(L, niter = 5)
 
-path = "/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia/Simulation_Results/2021-07-01/configs/"
-
-cid = parse_directory(path, 2)
+for (idx,n) in tqdm(enumerate(nbins)):
+    cid = compress_directory(configs_path,n)
+    Sn = get_entropy(cid, cid_rand, T_sim, n, L)
+    
