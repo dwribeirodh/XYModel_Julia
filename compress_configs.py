@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sweetsourcod.lempel_ziv import lempel_ziv_complexity
 from os import listdir
-from tqdm import tqdm
 from scipy.special import iv as besseli
 from scipy.integrate import quad
 
@@ -20,14 +19,16 @@ def parse_directory(configs_path, n):
     parse directory of config data and return vector of CID data
     """
     dir_list = listdir(configs_path)
+    dir_list.sort()
     CID = np.zeros(len(dir_list), dtype = float)
-    for (idx,fname) in tqdm(enumerate(dir_list)):
+    for (idx,fname) in enumerate(dir_list):
         if fname != ".DS_Store":
+            print(fname)
             vec = read_file(fname, configs_path)
             vec = discretize_data(vec, n = n)
             cid = get_cid(vec)
+            del vec
             CID[idx] = cid
-    #del vec
     return CID
 
 def discretize_data(vec, n = 255):
@@ -107,7 +108,7 @@ def get_exact_cv(T):
 
 def get_integrand(T):
     """
-    returns the integrand of S = ∫(Cv/T)dT
+    returns the integrand of S = int(Cv/T)dT
     given a temperature T
     """
     integrand = get_exact_cv(T) / T
@@ -116,7 +117,7 @@ def get_integrand(T):
 def get_exact_entropy_(T):
     """
     computes the entropy based on the formula
-    S = ∫(Cv/T)dT. Numerical integration is employed
+    S = int(Cv/T)dT. Numerical integration is employed
     from 0.01 to T
     """
     s = quad(get_integrand, 0.01, T)[0]
@@ -174,14 +175,17 @@ def plot_entropy(s_sim, s_exact, T_sim, T_exact, n, plots_path):
     # TODO: finish this method
     return 0
 
-configs_path = "/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia"
+configs_path = "/Users/danielribeiro/XYModel_Julia/Simulation_Results/2021-07-05/configs/"
 
 L = 1000000
-nbins = [2*i for i in range(4, 15, 2)]
-S_sim = np.array([])
+nbins = [2, 10, 30, 50, 100]
 cid_rand = get_cid_rand(L, niter = 5)
+cid = np.zeros((251, 5), dtype = float)
+T_sim = np.linspace(0.2, 5, 251)
+for (idx,n) in enumerate(nbins):
+    print("--------- {} ---------".format(n))
+    cid[:, idx] = parse_directory(configs_path,n) / cid_rand
+    plt.plot(T_sim, cid[:, idx], label = "{}".format(n))
 
-for (idx,n) in tqdm(enumerate(nbins)):
-    cid = compress_directory(configs_path,n)
-    Sn = get_entropy(cid, cid_rand, T_sim, n, L)
-    
+plt.legend()
+plt.show()
