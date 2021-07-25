@@ -92,7 +92,7 @@ function get_thermo_beta(T::Float64)::Float64
 end
 
 "Metropolis Methods"
-function metropolis_step(vec::Array, energy::Float64, T::Float64)
+function metropolis_step(vec::Array, energy::Float64, T::Float64, d)
     """
     performs one time step of metropolis algorithm
     """
@@ -100,7 +100,7 @@ function metropolis_step(vec::Array, energy::Float64, T::Float64)
     β = get_thermo_beta(T)
     rand_spin = rand(1:L)
     nbrs = find_nbrs(vec, rand_spin)
-    dθ = rand(-pi:pi)
+    dθ = pi*rand(d)
     ΔE = 0
     for nn_angle in nbrs
         ΔE += cos(vec[rand_spin] + dθ - nn_angle) - cos(vec[rand_spin] - nn_angle)
@@ -119,7 +119,7 @@ end
 function sweep_metropolis(T, epoch,
                         freq::Int64, L::Int64,
                         is_random::Bool, configs_path::String,
-                        energy_path::String)
+                        energy_path::String, d)
     """
     given temperature T, runs a simulation using the Metropolis algorithm
     Params
@@ -135,37 +135,27 @@ function sweep_metropolis(T, epoch,
     β = get_thermo_beta(T)
     lattice = generate_lattice(L, is_random)
     energy = get_energy(lattice)
-    #time = 1:epoch
     cv = 0
     E = []
     M = []
-    counter = 0
-    time = 0.0
-    #for t in time
+    time = 0
     while time < epoch
-        lattice, energy, flip = metropolis_step(lattice, energy, T)
+        lattice, energy, flip = metropolis_step(lattice, energy, T, d)
         if flip
-            time += 1.0
+            time += 1
         end
         if time > 0.50 * epoch
-            counter += 1
             if time % freq == 0
-                #mag = get_magnetization(lattice)
                 push!(E, energy)
-                #push!(M, mag)
             end
-            if counter == (epoch/10)
+            if time % (epoch / 20) == 0
                 save_configs(lattice, configs_path, time, T)
-                counter = 0
             end
         end
     end
     cv = β^2 * var(E) / L
     E = E ./ L
-    #save_configs(E, energy_path, 0.0, T, is_energy=true)
     E = mean(E)
-    #M = M ./ L
-    #M = mean(M)
     return E, cv
 end
 
@@ -176,6 +166,7 @@ function metropolis_wrapper(T, epoch,
     """
     generates thermodynamic data for 1D xy using Metropolis.
     """
+    d = Uniform(-1.0, 1.0)
     println("Running Metropolis simulation...")
     E = zeros(length(T))
     M = zeros(length(T))
@@ -184,9 +175,8 @@ function metropolis_wrapper(T, epoch,
         e, cv = sweep_metropolis(temp, epoch,
                                     freq, L,
                                     is_random, configs_path,
-                                    energy_path)
+                                    energy_path, d)
         E[index] = e
-        #M[index] = mag
         Cv[index] = cv
     end
     return E, Cv
@@ -262,7 +252,7 @@ end
 
 "Save Config Methods"
 function save_configs(vec, path::String,
-                    spins_flipped::Float64, T::Float64;
+                    spins_flipped::Int, T::Float64;
                     is_energy = false)
     a = "xy_config_" * string(T) * "_" * string(spins_flipped) * ".txt"
     b = "xy_energy_" * string(T) * "_" * ".txt"
