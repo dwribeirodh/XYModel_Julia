@@ -11,6 +11,7 @@ Some functionalities I'm currently testing:
 - *optimizing XY1D_nonper.jl script (currently a little slow)*
 - *merging periodic and non-periodic BCs scripts*
 
+
 ## Installation
 
 To install this package, clone the repository as follows:
@@ -25,8 +26,10 @@ Some Julia packages are needed to successfully use the scrips contained in the p
 julia> include("/path/to/XYModel_Julia/setup.jl")
 ```
 
+
 ## Simulation Parameters
 To choose different simulation parameters, open the ```config.txt``` file and read the instructions. You can modify the parameters after the "=" sign under each simulation parameter.
+
 
 ## Simulation Results
 I have included here some plots generated with the scripts ```XY1D_nonper.jl``` (runs the Monte Carlo simulation). Important simulation parameters:
@@ -42,6 +45,7 @@ I have included here some plots generated with the scripts ```XY1D_nonper.jl``` 
 - *Specific Heat Capacity*
 
 ![cv_img](https://github.com/dwribeirodh/XYModel_Julia/blob/main/Simulation_Results/2021-08-04/plots/xy_cv_1.0e7_1000.png)
+
 
 ## License
 
