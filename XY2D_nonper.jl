@@ -246,18 +246,87 @@ function sweep_metropolis_gif(
     gif(a, "2dxy_metropolis.gif", fps = 100000)
 end
 
-T = 0.2:0.2:5
-epoch = 1000000
-freq = 10
-L = 100
-d = Uniform(-pi, pi)
-E, cv = metropolis_simulation(
-    T,
-    epoch,
-    freq,
-    L,
-    pwd()
-)
+function get_params()
+    params = Dict()
+    open("config.txt") do f
+        while !eof(f)
+            line = readline(f)
+            if '=' in line
+                line = split(line, "=")
+                key = line[1]
+                val = line[2]
+                val = convert_type(val)
+                params[key] = val
+            end
+        end
+    end
+    T_sim = params["T_sim_initial_value"]:params["T_sim_step_size"]:params["T_sim_final_value"]
+    T_exact = params["T_exact_initial_value"]:params["T_exact_step_size"]:params["T_exact_final_value"]
+    epoch = params["epoch"]
+    freq = params["freq"]
+    L = params["L"]
+    #is_random = params["is_random"]
+    XY_path = params["XY_path"]
+    return (T_sim, T_exact,
+            epoch, freq,
+            L, XY_path)
+end
 
-plot(T, E)
-plot(T, cv)
+function is_bool(name::SubString{String})::Bool
+    if name == "true" || name == "false"
+        return true
+    else
+        return false
+    end
+end
+
+function is_int(name::SubString{String})::Bool
+    if '.' in name || 'e' in name
+        return false
+    else
+        return true
+    end
+end
+
+function is_float(name::SubString{String})::Bool
+    if '.' in name && name != "sweetsourcod.lempel_ziv"
+        return true
+    else
+        return false
+    end
+end
+
+function convert_type(name::SubString{String})
+    if is_float(name)
+        name = parse(Float64, name)
+    elseif is_int(name)
+        name = parse(Int64, name)
+    elseif is_bool(name)
+        name = parse(Bool, name)
+    else
+        name = convert(String, name)
+    end
+    return name
+end
+
+function main()
+    T_sim, T_exact, epoch, freq, L, xy_repo_path = get_params()
+
+    today_date = string(today())
+    mkpath("Simulation_Results/"*today_date*"/configs/")
+    mkpath("Simulation_Results/"*today_date*"/plots/")
+    mkpath("Simulation_Results/"*today_date*"/energy/")
+    configs_path = xy_repo_path*"/Simulation_Results/"*today_date*"/configs/"
+    plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
+
+    e, cv = metropolis_simulation(T_sim, epoch, freq, L, configs_path)
+    metro_res = [e cv]
+    return metro_res, T_sim
+    #TODO: implement exact results and plotting routines
+end
+
+data, T = main()
+e = data[:, 1]
+cv = data[:, 2]
+scatter(T, e)
+scatter(T, cv)
