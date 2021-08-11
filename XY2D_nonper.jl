@@ -3,12 +3,14 @@
 using Distributions
 using Plots
 using ProgressBars
-using SpecialFunctions: besseli
 using DelimitedFiles: readdlm, writedlm
-using PyCall: pyimport
-using QuadGK: quadgk
 using Dates: today
+using LaTeXStrings
 
+abstract type periodic end
+abstract type fixed end
+
+""" domain mapping methods """
 function get_local_domain(k, n)
     """
     maps a global domain k to a local domain (i,j)
@@ -31,55 +33,92 @@ function get_global_domain(i::Int, j::Int, L::Int)::Int
     return j + (i - 1) * L
 end
 
-function get_top_nbr(L::Int, i::Int, j::Int)::Int
+"""periodic BCs neighbor methods """
+function get_top_nbr(L::Int, i::Int, j::Int, bc_type::Type{periodic})::Int
     """
-    returns the top neighbor index k given an index pair (i,j)
+    returns the top neighbor index k given an index pair (i,j).
+    Applies periodic boundary conditions
     """
     return get_global_domain(ifelse(i == 1, L, i - 1), j, L)
 end
 
-function get_bottom_nbr(L::Int, i::Int, j::Int)::Int
+function get_bottom_nbr(L::Int, i::Int, j::Int, bc_type::Type{periodic})::Int
     """
     returns the bottom neighbor index k given an index pair (i,j)
+    applies periodic boundary conditions
     """
     return get_global_domain(ifelse(i == L, 1, i + 1), j, L)
 end
 
-function get_left_nbr(L::Int, i::Int, j::Int)::Int
+function get_left_nbr(L::Int, i::Int, j::Int, bc_type::Type{periodic})::Int
     """
     returns the left neighbor index k given an index pair (i,j)
     """
     return get_global_domain(i, ifelse(j == 1, L, j - 1), L)
 end
 
-function get_right_nbr(L::Int, i::Int, j::Int)::Int
+function get_right_nbr(L::Int, i::Int, j::Int, bc_type::Type{periodic})::Int
     """
     returns the right neighbor index k given an index pair (i,j)
     """
     return get_global_domain(i, ifelse(j == L, 1, j + 1), L)
 end
 
-function get_nn_idx(L::Int, i::Int, j::Int)::Array
+""" non-periodic BCs neighbor methods """
+function get_top_nbr(L::Int, i::Int, j::Int, bc_type::Type{fixed})::Int
+    """
+    returns the top neighbor index k given an index pair (i,j)
+     Applies fixed boundary conditions
+    """
+    i = ifelse(i == 1, 0, i - 1)
+    (i == 0) ? (return 0) : (return get_global_domain(i, j, L))
+end
+
+function get_bottom_nbr(L::Int, i::Int, j::Int, bc_type::Type{fixed})::Int
+    """
+    returns the bottom neighbor index k given an index pair (i,j)
+    applies fixed boundary conditions
+    """
+    i = ifelse(i == L, 0, i + 1)
+    (i == 0) ? (return 0) : (return get_global_domain(i, j, L))
+end
+
+function get_left_nbr(L::Int, i::Int, j::Int, bc_type::Type{fixed})::Int
+    j = ifelse(j == 1, 0, j - 1)
+    (j == 0) ? (return 0) : (return get_global_domain(i, j, L))
+end
+
+function get_right_nbr(L::Int, i::Int, j::Int, bc_type::Type{fixed})::Int
+    j = ifelse(j == L, 0, j + 1)
+    (j == 0) ? (return 0) : (return get_global_domain(i, j, L))
+end
+
+function get_nn_idx(L::Int, bc_type, i::Int, j::Int)::Array
     """
     returns all 4 nearest neighbors of an index pair (i,j) mapped
     onto k global index
     """
     return [
-        get_top_nbr(L::Int, i::Int, j::Int),
-        get_right_nbr(L::Int, i::Int, j::Int),
-        get_left_nbr(L::Int, i::Int, j::Int),
-        get_bottom_nbr(L::Int, i::Int, j::Int),
+        get_top_nbr(L::Int, i::Int, j::Int, bc_type),
+        get_right_nbr(L::Int, i::Int, j::Int, bc_type),
+        get_left_nbr(L::Int, i::Int, j::Int, bc_type),
+        get_bottom_nbr(L::Int, i::Int, j::Int, bc_type),
     ]
 end
 
-function get_nn(lattice, L, i, j)
+function get_nn(lattice, L, i, j, bc_type::Type{periodic})
     """
     finds the spin values of the nearest neighbors
     of spin "angle"
     """
-    nn_idx = get_nn_idx(L, i, j)
-    nn = lattice[nn_idx]
-    return nn
+    nnidx = get_nn_idx(L, periodic, i, j)
+    return lattice[nnidx]
+end
+
+function get_nn(lattice, L, i, j, bc_type::Type{fixed})
+    nnidx = get_nn_idx(L, fixed, i, j)
+    nnidx = [val for val in nnidx if val != 0]
+    return lattice[nnidx]
 end
 
 function generate_lattice(L::Real, d::Uniform{Float64}, is_random::Bool)::Array
@@ -102,7 +141,7 @@ function reform_lattice(lattice, L::Int)
     return sqrlat
 end
 
-function get_energy(lattice, L)::Float64
+function get_energy(lattice, L, bc_type)::Float64
     """
     computes the hamiltonian of the system given a
     configuration vec
@@ -111,7 +150,7 @@ function get_energy(lattice, L)::Float64
     energy = 0.0
     for (idx, angle) in enumerate(lattice)
         i, j = get_local_domain(idx, L)
-        nn = get_nn(lattice, L, i, j)[1:2]
+        nn = get_nn(lattice, L, i, j, bc_type)[1:2]
         energy += cos(angle - nn[1]) + cos(angle - nn[2])
     end
     return -energy
@@ -123,16 +162,16 @@ function metropolis_step(
     L::Int,
     energy::Float64,
     T::Float64,
+    bc_type,
     d::Uniform{Float64},
 )
     """
     performs one time step of metropolis algorithm
     """
     β = 1.0 / T  # calculate thermo beta
-    #rand_spin = rand(1:L^2) # select rand spin from vector
     randi, randj = get_local_domain(spin, L) # see sweep_metropolis for typewrite scheme implementation
-    nnidx = get_nn_idx(L, randi, randj)
-    nn = lattice[nnidx]
+    nnidx = get_nn_idx(L, bc_type, randi, randj)
+    nn = get_nn(lattice, L, randi, randj, bc_type)
     dθ = pi * rand(d)
     ΔE = 0.0
     for nn_angle in nn
@@ -152,7 +191,7 @@ function metropolis_step(
     return lattice, energy, flip
 end
 
-function sweep_metropolis(T, epoch, freq::Int64, L::Int64, d::Uniform{Float64})
+function sweep_metropolis(T, epoch, freq::Int64, L::Int64, bc_type, d::Uniform{Float64})
     """
     given temperature T, runs a simulation using the Metropolis algorithm
     Params
@@ -169,14 +208,14 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, d::Uniform{Float64})
         T < 0.88 ? lattice = generate_lattice(L, d, false) :
         lattice = generate_lattice(L, d, true)
     )
-    energy = get_energy(lattice, L)
+    energy = get_energy(lattice, L, bc_type)
     cv = 0.0
     E = []
     cv = []
     time = 0
     spin = 1
     while time < epoch
-        lattice, energy, flip = metropolis_step(lattice, spin, L, energy, T, d)
+        lattice, energy, flip = metropolis_step(lattice, spin, L, energy, T, bc_type, d)
         (spin == L^2) ? spin = 1 : spin += 1
         if flip
             time += 1
@@ -195,6 +234,7 @@ function metropolis_simulation(
         epoch,
         freq::Int64,
         L::Int64,
+        bc_type,
         configs_path::String,
     )
     """
@@ -210,10 +250,11 @@ function metropolis_simulation(
             epoch,
             freq,
             L,
+            bc_type,
             d
         )
     end
-    return E, Cv
+    return [E Cv]
 end
 
 function sweep_metropolis_gif(
@@ -221,29 +262,30 @@ function sweep_metropolis_gif(
     epoch,
     freq::Int64,
     L::Int64,
-    d::Uniform{Float64},
+    bc_type,
+    FPS,
 )
+    d = Uniform(-pi, pi)
     β = 1.0 / T
-    (
-        T < 1.5 ? lattice = generate_lattice(L, d, false) :
-        lattice = generate_lattice(L, d, true)
-    )
-    energy = get_energy(lattice, L)
+    lattice = generate_lattice(L, d, true)
+    energy = get_energy(lattice, L, bc_type)
     time = 0
+    spin = 1
     a = Animation()
     while time < epoch
-        lattice, energy, flip = metropolis_step(lattice, L, energy, T, d)
+        lattice, energy, flip = metropolis_step(lattice, spin, L, energy, T, bc_type, d)
+        (spin == L^2) ? spin = 1 : spin += 1
         if flip
             time += 1
         end
         if time % freq == 0
             println("progresss = " * string((time / epoch) * 100) * "%")
-            gif_vec = reform_lattice((lattice .% (2pi)), L)
-            p = heatmap(gif_vec)
+            gif_vec = reform_lattice(lattice .% pi, L)
+            p = heatmap(gif_vec, c = :darkrainbow, title = string(time))
             frame(a, p)
         end
     end
-    gif(a, "2dxy_metropolis.gif", fps = 100000)
+    gif(a, "2dxy_metropolis.gif", fps = FPS)
 end
 
 function get_params()
@@ -265,11 +307,14 @@ function get_params()
     epoch = params["epoch"]
     freq = params["freq"]
     L = params["L"]
-    #is_random = params["is_random"]
     XY_path = params["XY_path"]
-    return (T_sim, T_exact,
-            epoch, freq,
-            L, XY_path)
+    bc_type = params["bc_type"]
+    bc_type == "fixed" ? bc_type = fixed : bc_type = periodic
+    return (
+        T_sim, T_exact,
+        epoch, freq,
+        L, XY_path,
+        bc_type)
 end
 
 function is_bool(name::SubString{String})::Bool
@@ -309,8 +354,46 @@ function convert_type(name::SubString{String})
     return name
 end
 
+function plot_data(
+        metro_data,
+        T_sim,
+        plotspath,
+        epoch,
+        L
+    )
+    """
+    Plots data, saves figures to plotspath
+    """
+
+    println("Plotting and saving figures to: " * plotspath)
+
+    e_plot = plot(
+        T_sim,
+        metro_data[:, 1],
+        label = "MCMC",
+        tick_direction = :out,
+        legend = :bottomright,
+        color = "black"
+    )
+    xlabel!(L"T")
+    ylabel!(L"U/N")
+    savefig(e_plot, plotspath * "2d_xy_energy_"*string(epoch)*"_"*string(L)*".png")
+
+    cv_plot = plot(
+        T_sim,
+        metro_data[:, 2],
+        label = "MCMC",
+        tick_direction = :out,
+        legend = :best,
+        color = "black"
+    )
+    xlabel!(L"T")
+    ylabel!(L"C_{v}/N")
+    savefig(cv_plot, plotspath * "2d_xy_cv_" * string(epoch) * "_" * string(L) * ".png")
+end
+
 function main()
-    T_sim, T_exact, epoch, freq, L, xy_repo_path = get_params()
+    T_sim, T_exact, epoch, freq, L, xy_repo_path, bc_type = get_params()
 
     today_date = string(today())
     mkpath("Simulation_Results/"*today_date*"/configs/")
@@ -319,14 +402,9 @@ function main()
     configs_path = xy_repo_path*"/Simulation_Results/"*today_date*"/configs/"
     plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
 
-    e, cv = metropolis_simulation(T_sim, epoch, freq, L, configs_path)
-    metro_res = [e cv]
-    return metro_res, T_sim
-    #TODO: implement exact results and plotting routines
+    metro_data = metropolis_simulation(T_sim, epoch, freq, L, bc_type, configs_path)
+    plot_data(metro_data, T_sim, plots_path, epoch, L)
+
 end
 
-data, T = main()
-e = data[:, 1]
-cv = data[:, 2]
-scatter(T, e)
-scatter(T, cv)
+main()
