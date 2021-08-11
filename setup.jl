@@ -1,6 +1,6 @@
 # This script will install all necessary packages for use of the repository
 # XYModel_Julia.
-# Any questions, email ribei040@umn.edu
+# Any questions --> email ribei040@umn.edu
 
 using Pkg
 
@@ -15,7 +15,8 @@ pkg_names = [
                 "SpecialFunctions";
                 "DelimitedFiles";
                 "QuadGK";
-                "Dates"
+                "Dates";
+                "LaTeXStrings"
         ]
 
 for name in pkg_names
@@ -25,5 +26,5 @@ end
 check = keys(Pkg.installed())
 
 for name in pkg_names
-        !in(name, check) ? println("Package < "*name *" > failed to install") : print("")
+        !in(name, check) ? println("Package < "*name*" > failed to install") : print("")
 end
