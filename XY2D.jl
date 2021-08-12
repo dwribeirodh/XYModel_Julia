@@ -192,7 +192,15 @@ function metropolis_step(
     return lattice, energy, flip
 end
 
-function sweep_metropolis(T, epoch, freq::Int64, L::Int64, bc_type, d::Uniform{Float64})
+function sweep_metropolis(
+    T,
+    epoch,
+    freq::Int64,
+    L::Int64,
+    bc_type,
+    d::Uniform{Float64},
+    configspath::String
+)
     """
     given temperature T, runs a simulation using the Metropolis algorithm
     Params
@@ -223,6 +231,7 @@ function sweep_metropolis(T, epoch, freq::Int64, L::Int64, bc_type, d::Uniform{F
         end
         if (time > 0.5 * epoch) && (time % freq == 0)
             push!(E, energy)
+            #save_configs(lattice, configspath, time, T)
         end
     end
     cv = (β^2 * var(E)) / L^2
@@ -264,7 +273,7 @@ function sweep_metropolis_gif(
     freq::Int64,
     L::Int64,
     bc_type,
-    FPS,
+    FPS
 )
     d = Uniform(-pi, pi)
     β = 1.0 / T
@@ -405,6 +414,21 @@ function plot_data(
     xlabel!(L"T")
     ylabel!(L"C_{v}/N")
     savefig(cv_plot, plotspath * "2d_xy_cv_" * string(epoch) * "_" * string(L) * ".png")
+end
+
+function save_configs(
+        lattice,
+        configspath,
+        flipped,
+        T
+    )
+    """
+    saves configurations to txt file
+    """
+    fname = "2d_xy_config_" * string(T) * "_" * string(flipped) * ".txt"
+    open(configspath * fname, "w") do io
+        writedlm(io, lattice)
+    end
 end
 
 function extract_data()
