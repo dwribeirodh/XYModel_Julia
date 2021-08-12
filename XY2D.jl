@@ -6,6 +6,7 @@ using ProgressBars
 using DelimitedFiles: readdlm, writedlm
 using Dates: today
 using LaTeXStrings
+using CSV
 
 abstract type periodic end
 abstract type fixed end
@@ -357,6 +358,8 @@ end
 function plot_data(
         metro_data,
         T_sim,
+        exact_cv,
+        exact_u,
         plotspath,
         epoch,
         L
@@ -373,7 +376,13 @@ function plot_data(
         label = "MCMC",
         tick_direction = :out,
         legend = :bottomright,
-        color = "black"
+        c = "black"
+    )
+    plot!(
+        exact_u[:, 1],
+        exact_u[:, 2],
+        label = "Xu, Ma",
+        c = "maroon"
     )
     xlabel!(L"T")
     ylabel!(L"U/N")
@@ -387,13 +396,36 @@ function plot_data(
         legend = :best,
         color = "black"
     )
+    plot!(
+        exact_cv[:, 1],
+        exact_cv[:, 2],
+        label = "Xu, Ma",
+        c = "maroon"
+    )
     xlabel!(L"T")
     ylabel!(L"C_{v}/N")
     savefig(cv_plot, plotspath * "2d_xy_cv_" * string(epoch) * "_" * string(L) * ".png")
 end
 
+function extract_data()
+    cvfile = CSV.File("cv_paper_32x32.csv")
+    ufile = CSV.File("u_paper_32x32.csv")
+    cv_data = zeros(size(cvfile)[1], 2)
+    u_data = zeros(size(ufile)[1], 2)
+    for (idx,row) in enumerate(cvfile)
+        cv_data[idx, 1] = row.x
+        cv_data[idx, 2] = row.y
+    end
+    for (idx,row) in enumerate(ufile)
+        u_data[idx, 1] = row.x
+        u_data[idx, 2] = row.y
+    end
+    return cv_data, u_data
+end
+
 function main()
     T_sim, T_exact, epoch, freq, L, xy_repo_path, bc_type = get_params()
+    exact_cv, exact_u = extract_data()
 
     today_date = string(today())
     mkpath("Simulation_Results/"*today_date*"/configs/")
@@ -403,7 +435,7 @@ function main()
     plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
 
     metro_data = metropolis_simulation(T_sim, epoch, freq, L, bc_type, configs_path)
-    plot_data(metro_data, T_sim, plots_path, epoch, L)
+    plot_data(metro_data, T_sim, exact_cv, exact_u, plots_path, epoch, L)
 
 end
 
