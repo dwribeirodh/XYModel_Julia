@@ -231,7 +231,7 @@ function sweep_metropolis(
         end
         if (time > 0.5 * epoch) && (time % freq == 0)
             push!(E, energy)
-            #save_configs(lattice, configspath, time, T)
+            save_configs(lattice, configspath, time, T)
         end
     end
     cv = (β^2 * var(E)) / L^2
@@ -261,7 +261,8 @@ function metropolis_simulation(
             freq,
             L,
             bc_type,
-            d
+            d,
+            configs_path
         )
     end
     return [E Cv]
