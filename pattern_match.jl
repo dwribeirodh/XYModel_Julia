@@ -15,35 +15,39 @@ function get_local_domain(k, n)
     return i, j
 end
 
-function find_idx(value, array)
-    idxs = []
-    for (idx,i) in enumerate(array)
-        if i == value
-            push!(idxs, idx)
+function get_subarray(patlen, iidx, jidx, lat1, latlen)
+    """
+    returns the sub array of lat1
+    indexed by [iidx:iidx+patlen-1, jidx:jidx+patlen-1].
+    latlen is the side length of lat1.
+    This method implements periodic BCs
+    """
+    store = []
+    for i = iidx:(iidx+patlen-1)
+        for j = jidx:(jidx+patlen-1)
+            iidxmap, jidxmap = mod(i, latlen), mod(j, latlen)
+            iidxmap = ifelse(iidxmap==0, latlen, iidxmap)
+            jidxmap = ifelse(jidxmap==0, latlen, jidxmap)
+            push!(store, lat1[iidxmap, jidxmap])
         end
     end
-    return idxs
+    return store
 end
 
-function get_subarray(L, i, j, array)
+function find_pattern(pat1, patlen, lat2, latlen)
     """
-    returns the sub array of array
-    indexed by [i:i+L-1, j:j+L-1]
-    """
-    return array[i:i+L-1, j:j+L-1]
-end
-
-function find_pattern(pattern, lattice, latlen, patlen)
-    """
-    looks for a square array pattern within
-        square array. L is the side length of pattern
-        and arrlen is the
+    returns true if pat1 exists in lat2.
+    Returns false otherwise.
+    patlen is the side length of pattern and
+    latlen is the side length of lat2
     """
     is_pattern = false
-    for i in 1:latlen-patlen
-        for j in 1:latlen-patlen
-            p = lattice[i:i+patlen-1, j:j+patlen-1]
-            if p == pattern
+    for i = 1:latlen
+    # for i = 1:latlen-patlen
+        for j = 1:latlen
+        # for j = 1:latlen-patlen
+            pat2 = get_subarray(patlen, i, j, lat2, latlen)
+            if pat2 == pat1
                 is_pattern = true
                 break
             end
@@ -52,37 +56,45 @@ function find_pattern(pattern, lattice, latlen, patlen)
     return is_pattern
 end
 
-function find_pattern_length(arr1, arr2, pos, latlen)
+function find_longest_match(iidx, jidx, lat1, lat2, latlen)
     """
-    select a global index pos from array 1 such that
-    pos ∈ [1, latlen^2]. this function will look
-    for the longest matching subarray present in arr2.
+    Returns the longest match length found in lat2
+    Pass in an index pair (iidx, jidx) that exist in lat1.
+    the algorithm then performs linear search on lat2 to find
+    the longest possible match.
     """
-    iidx,jidx = get_local_domain(pos, latlen)
     is_pattern = true
-    patlen = 1
+    patlen = 0
     while is_pattern
-        pattern = get_subarray(patlen, iidx, jidx, arr1)
-        is_pattern = find_pattern(pattern, arr2, latlen, patlen)
         patlen += 1
+        pat1 = get_subarray(patlen, iidx, jidx, lat1, latlen)
+        is_pattern = find_pattern(pat1, patlen, lat2, latlen)
     end
-    return patlen-1
+    return (patlen-1)^2
 end
 
-d = Normal(10, 0.1)
-a = floor.(rand(d, 100, 100))
-b = floor.(rand(d, 100, 100))
-find_pattern_length(a, b, 10, 100)
-
-# a = floor.(10 .* rand(10, 10))
-# b = floor.(10 .* rand(10, 10))
-
-a = ones(10, 10)
-b = zeros(10,10)
-
-for i = 1:4
-    for j = 1:4
-        a[i,j] = 0
+function get_entropy(lat1, lat2, latlen)
+    """
+    computes entropy
+    """
+    sum_len = 0
+    nsamples = 0
+    while sum_len <= latlen^2
+        randi, randj = rand(1:latlen), rand(1:latlen)
+        sum_len += find_longest_match(randi, randj, lat1, lat2, latlen)
+        nsamples +=1
     end
+    len_avg = sum_len / nsamples
+    entropy = log2(latlen^2) / len_avg
 end
-find_pattern_length(a, b, 1, 10)
+
+latlen = 10
+d = Bernoulli(0.5)
+lat1 = rand(d, latlen, latlen)
+lat2 = rand(d, latlen, latlen)
+l = zeros(latlen^5)
+for s = ProgressBar(1:latlen^5)
+    randi, randj = get_local_domain(s, latlen)
+    l[s] = find_longest_match(randi, randj, lat1, lat2, latlen)
+end
+entropy = get_entropy(lat1, lat2, latlen)
