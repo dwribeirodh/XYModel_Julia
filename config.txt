@@ -1,70 +1,54 @@
-Set params for running the 1D XY simulation using the Metropolis algorithm.
-This config file will be read by the 1DXY_nonper.jl script to run the simulation
+Set params for running the DD XY simulation using the Metropolis algorithm.
+This config file will be read for both 1D and 2D simulations.
 It will then generate equilibrium configurations and thermodynamic data.
 If you have any more questions, email ribei040@umn.edu
-Make sure you are inside the XYModel_Julia directory when trying to
+Make sure you are inside the correct folder when trying to
 run the simulation.
 
 Set below params after the equals sign.
 
---- T_sim ---
+--- Simulation Temperature Range ---
 the range of temperatures to be sampled using Metropolis algorithm.
 
 
-T_sim_initial_value=0.2
+T_sim_initial_value=0.01
 
-T_sim_final_value=5.0
+T_sim_final_value=3.0
 
-T_sim_step_size=0.2
+T_sim_step_size=0.02
 
-
-
---- T_exact ---
+--- Exact Temperature Range ---
 the range of temperatures to be used in calculating the exact solutions.
 
+T_exact_initial_value=1.00
 
-T_exact_initial_value=0.01
-
-T_exact_final_value=5.0
+T_exact_final_value=5.00
 
 T_exact_step_size=0.01
-
-
 
 --- epoch ---
 the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=5000000000.0
+epoch=10000
 
-
-
---- freq ---
+--- frequency ---
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
 
-freq=10000
+freq=100
 
 
-
---- L ---
+--- lattice length ---
 the length of the lattice to simulate.
 
-L=1000000
+L=16
 
+--- perBC ---
+This will determine whether the simulation will
+have periodic or fixed boundary conditions.
+For fixed boundary conditions, type "fixed" after bc_type.
+For periodic boundary conditions, type "periodic" after bc_type.
 
-
---- is_random ---
-boolean value to determine whether to initialize the lattice as fully random (true)
-or fully correlated (false).
-
-is_random=false
-
-
-
---- XY_path ---
-this is the path to which you cloned XYModel_Julia. For example, for me
-it would be /Users/danielribeiro/XYModel_Julia
-
-XY_path=/panfs/roc/groups/7/mart5523/ribei040/XYModel_Julia
+bc_type=periodic

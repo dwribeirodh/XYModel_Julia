@@ -7,6 +7,7 @@ using DelimitedFiles: readdlm, writedlm
 using Dates: today
 using LaTeXStrings
 using CSV
+using GilbertCurves
 
 abstract type periodic end
 abstract type fixed end
@@ -69,7 +70,7 @@ end
 function get_top_nbr(L::Int, i::Int, j::Int, bc_type::Type{fixed})::Int
     """
     returns the top neighbor index k given an index pair (i,j)
-     Applies fixed boundary conditions
+    Applies fixed boundary conditions
     """
     i = ifelse(i == 1, 0, i - 1)
     (i == 0) ? (return 0) : (return get_global_domain(i, j, L))
@@ -171,7 +172,7 @@ function metropolis_step(
     """
     β = 1.0 / T  # calculate thermo beta
     randi, randj = get_local_domain(spin, L) # see sweep_metropolis for typewrite scheme implementation
-    nnidx = get_nn_idx(L, bc_type, randi, randj)
+    # nnidx = get_nn_idx(L, bc_type, randi, randj)
     nn = get_nn(lattice, L, randi, randj, bc_type)
     dθ = pi * rand(d)
     ΔE = 0.0
@@ -186,7 +187,7 @@ function metropolis_step(
     flip = false
     if rand() < y
         lattice[spin] = lattice[spin] + dθ
-        energy = energy + ΔE
+        energy += ΔE
         flip = true
     end
     return lattice, energy, flip
@@ -220,7 +221,6 @@ function sweep_metropolis(
     energy = get_energy(lattice, L, bc_type)
     cv = 0.0
     E = []
-    cv = []
     time = 0
     spin = 1
     while time < epoch
@@ -231,7 +231,7 @@ function sweep_metropolis(
         end
         if (time > 0.5 * epoch) && (time % freq == 0)
             push!(E, energy)
-            save_configs(lattice, configspath, time, T)
+            save_configs((lattice .% 2pi) .+ abs(minimum(lattice)), L, configspath, time, T)
         end
     end
     cv = (β^2 * var(E)) / L^2
@@ -292,7 +292,7 @@ function sweep_metropolis_gif(
         if time % freq == 0
             println("progresss = " * string((time / epoch) * 100) * "%")
             gif_vec = reform_lattice(lattice .% pi, L)
-            p = heatmap(gif_vec, c = :darkrainbow, title = string(time))
+            p = heatmap(gif_vec, c = :PuBu_8, title = string(time))
             frame(a, p)
         end
     end
@@ -318,14 +318,13 @@ function get_params()
     epoch = params["epoch"]
     freq = params["freq"]
     L = params["L"]
-    XY_path = params["XY_path"]
+    # XY_path = params["XY_path"]
     bc_type = params["bc_type"]
     bc_type == "fixed" ? bc_type = fixed : bc_type = periodic
     return (
         T_sim, T_exact,
         epoch, freq,
-        L, XY_path,
-        bc_type)
+        L, bc_type)
 end
 
 function is_bool(name::SubString{String})::Bool
@@ -417,8 +416,13 @@ function plot_data(
     savefig(cv_plot, plotspath * "2d_xy_cv_" * string(epoch) * "_" * string(L) * ".png")
 end
 
+function get_hilbert_mask(sqrlat)
+    return GilbertCurves.gilbertorder(sqrlat)
+end
+
 function save_configs(
         lattice,
+        L,
         configspath,
         flipped,
         T
@@ -426,6 +430,8 @@ function save_configs(
     """
     saves configurations to txt file
     """
+    sqrlat = reform_lattice(lattice, L)
+    lattice = get_hilbert_mask(sqrlat)
     fname = "2d_xy_config_" * string(T) * "_" * string(flipped) * ".txt"
     open(configspath * fname, "w") do io
         writedlm(io, lattice)
@@ -449,7 +455,9 @@ function extract_data()
 end
 
 function main()
-    T_sim, T_exact, epoch, freq, L, xy_repo_path, bc_type = get_params()
+    cd("/Users/danielribeiro/XYModel_Julia")
+    T_sim, T_exact, epoch, freq, L, bc_type = get_params()
+    xy_repo_path = pwd()
     exact_cv, exact_u = extract_data()
 
     today_date = string(today())

@@ -1,5 +1,4 @@
 # Author: Daniel Ribeiro (ribei040@umn.edu)
-# Compress configurations and compute entropy
 
 using Distributions
 using Plots
@@ -169,7 +168,6 @@ function metropolis_wrapper(T, epoch,
     d = Uniform(-1.0, 1.0)
     println("Running Metropolis simulation...")
     E = zeros(length(T))
-    M = zeros(length(T))
     Cv = zeros(length(T))
     for (index, temp) in ProgressBar(enumerate(T))
         e, cv = sweep_metropolis(temp, epoch,

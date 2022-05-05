@@ -26,6 +26,7 @@ function get_subarray(patlen, iidx, jidx, lat1, latlen)
     for i = iidx:(iidx+patlen-1)
         for j = jidx:(jidx+patlen-1)
             iidxmap, jidxmap = mod(i, latlen), mod(j, latlen)
+            # ifelse makes sure the periodic bcs are iimplemented
             iidxmap = ifelse(iidxmap==0, latlen, iidxmap)
             jidxmap = ifelse(jidxmap==0, latlen, jidxmap)
             push!(store, lat1[iidxmap, jidxmap])
@@ -47,6 +48,7 @@ function find_pattern(pat1, patlen, lat2, latlen)
         for j = 1:latlen
         # for j = 1:latlen-patlen
             pat2 = get_subarray(patlen, i, j, lat2, latlen)
+            # if pat2 is the same as pat1, we have a match
             if pat2 == pat1
                 is_pattern = true
                 break
@@ -65,6 +67,8 @@ function find_longest_match(iidx, jidx, lat1, lat2, latlen)
     """
     is_pattern = true
     patlen = 0
+    # while a match is found, increase the search area until
+    # no match is found
     while is_pattern
         patlen += 1
         pat1 = get_subarray(patlen, iidx, jidx, lat1, latlen)
@@ -79,22 +83,23 @@ function get_entropy(lat1, lat2, latlen)
     """
     sum_len = 0
     nsamples = 0
+    # loop while the sum of lengths is less than
+    # the number of spins in the system
     while sum_len <= latlen^2
         randi, randj = rand(1:latlen), rand(1:latlen)
         sum_len += find_longest_match(randi, randj, lat1, lat2, latlen)
-        nsamples +=1
+        nsamples += 1
+        println(sum_len/latlen^2)
     end
     len_avg = sum_len / nsamples
     entropy = log2(latlen^2) / len_avg
 end
 
-latlen = 10
-d = Bernoulli(0.5)
+latlen = 100
+d = Bernoulli(0.1)
 lat1 = rand(d, latlen, latlen)
 lat2 = rand(d, latlen, latlen)
-l = zeros(latlen^5)
-for s = ProgressBar(1:latlen^5)
-    randi, randj = get_local_domain(s, latlen)
-    l[s] = find_longest_match(randi, randj, lat1, lat2, latlen)
-end
+l = zeros(latlen^3)
 entropy = get_entropy(lat1, lat2, latlen)
+
+### use satyam's idea on testing the algorithm with a small 3x3 lat ###
