@@ -31,19 +31,19 @@ the number of spins to be flipped during the simulation. This is defined as the
 number of time steps in the simulation. Important to notice that the burnout
 region of the Markov chain is preset to be the first half of configurations.
 
-epoch=10000
+epoch=100
 
 --- frequency ---
 the frequency to which compute thermodynamic quantities. Important to note that
 this frequency will only take place after the burnout region.
 
-freq=100
+freq=10
 
 
 --- lattice length ---
 the length of the lattice to simulate.
 
-L=16
+L=10
 
 --- perBC ---
 This will determine whether the simulation will

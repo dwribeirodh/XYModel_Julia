@@ -6,7 +6,7 @@ using ProgressBars
 using DelimitedFiles: readdlm, writedlm
 using Dates: today
 using LaTeXStrings
-# using CSV
+using CSV
 using GilbertCurves
 
 abstract type periodic end
@@ -384,6 +384,9 @@ function plot_data(
         metro_data[:, 1],
         label = "MCMC",
         tick_direction = :out,
+        minorticks=:false,
+        framestyle=:box,
+        grid=:none,
         legend = :bottomright,
         c = "black"
     )
@@ -393,7 +396,7 @@ function plot_data(
         label = "Xu, Ma",
         c = "maroon"
     )
-    xlabel!(L"T")
+    xlabel!(L"T/J")
     ylabel!(L"U/N")
     savefig(e_plot, plotspath * "2d_xy_energy_"*string(epoch)*"_"*string(L)*".png")
 
@@ -402,6 +405,9 @@ function plot_data(
         metro_data[:, 2],
         label = "MCMC",
         tick_direction = :out,
+        minorticks=:false,
+        framestyle=:box,
+        grid=:none,
         legend = :best,
         color = "black"
     )
@@ -411,7 +417,7 @@ function plot_data(
         label = "Xu, Ma",
         c = "maroon"
     )
-    xlabel!(L"T")
+    xlabel!(L"T/J")
     ylabel!(L"C_{v}/N")
     savefig(cv_plot, plotspath * "2d_xy_cv_" * string(epoch) * "_" * string(L) * ".png")
 end
@@ -438,21 +444,21 @@ function save_configs(
     end
 end
 
-# function extract_data()
-#     cvfile = CSV.File("cv_paper_32x32.csv")
-#     ufile = CSV.File("u_paper_32x32.csv")
-#     cv_data = zeros(size(cvfile)[1], 2)
-#     u_data = zeros(size(ufile)[1], 2)
-#     for (idx,row) in enumerate(cvfile)
-#         cv_data[idx, 1] = row.x
-#         cv_data[idx, 2] = row.y
-#     end
-#     for (idx,row) in enumerate(ufile)
-#         u_data[idx, 1] = row.x
-#         u_data[idx, 2] = row.y
-#     end
-#     return cv_data, u_data
-# end
+function extract_data()
+    cvfile = CSV.File("cv_paper_32x32.csv")
+    ufile = CSV.File("u_paper_32x32.csv")
+    cv_data = zeros(size(cvfile)[1], 2)
+    u_data = zeros(size(ufile)[1], 2)
+    for (idx,row) in enumerate(cvfile)
+        cv_data[idx, 1] = row.x
+        cv_data[idx, 2] = row.y
+    end
+    for (idx,row) in enumerate(ufile)
+        u_data[idx, 1] = row.x
+        u_data[idx, 2] = row.y
+    end
+    return cv_data, u_data
+end
 
 function main()
     cd("/Users/danielribeiro/XYModel_Julia")
@@ -468,7 +474,7 @@ function main()
     plots_path = xy_repo_path*"/Simulation_Results/"*today_date*"/plots/"
 
     metro_data = metropolis_simulation(T_sim, epoch, freq, L, bc_type, configs_path)
-    # plot_data(metro_data, T_sim, exact_cv, exact_u, plots_path, epoch, L)
+    plot_data(metro_data, T_sim, exact_cv, exact_u, plots_path, epoch, L)
 
 end
 
