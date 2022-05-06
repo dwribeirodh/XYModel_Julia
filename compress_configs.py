@@ -12,7 +12,7 @@ def read_file(fname, path):
     config = np.loadtxt(path+fname, dtype='float64')
     return config
 
-def parse_directory(configs_path, L, niter = 1000):
+def parse_directory(configs_path, L, n, niter = 1000):
     """
     parse directory of config data and return vector of CID data
     """
@@ -20,15 +20,16 @@ def parse_directory(configs_path, L, niter = 1000):
     dir_list.sort()
     H = np.zeros(len(dir_list), dtype = float)
     cid_rand = get_cid_rand(L, niter)
-    for (idx,fname) in tqdm(enumerate(dir_list), ncols = 5000):
+    for (idx,fname) in tqdm(enumerate(dir_list)):
         if fname != ".DS_Store":
             lattice = read_file(fname, configs_path)
+            lattice = discretize_data()
             cid = get_cid(lattice)
             H[idx] = get_entropy(cid, cid_rand)
     return H
 
-def save_entropy(H, h_path):
-    np.savetxt(h_path+"entropy_data.txt", H, fmt='%f')
+def save_entropy(H, n, h_path):
+    np.savetxt(h_path+"entropy_data"+"_n_"+str(n)+".txt", H, fmt='%f')
 
 def get_cid(vec):
     """
@@ -69,5 +70,8 @@ def discretize_data(vec, n):
 L = 512
 configs_path = "/home/mart5523/ribei040/IsingModelJulia/Simulation_Results/2022-03-22/configs/"
 h_path = "/home/mart5523/ribei040/IsingModelJulia/Simulation_Results/"
-H = parse_directory(configs_path, L**2)
-save_entropy(H, h_path)
+n = range(1, 255)
+for n_bin in n:
+    H = parse_directory(configs_path, n_bin, L**2)
+    save_entropy(H, n_bin, h_path)
+print("########## End of Program ##########")
